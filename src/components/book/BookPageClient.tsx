@@ -17,10 +17,22 @@ import { toast } from "sonner";
 import type { ClassWithDetails } from "@/hooks/useClasses";
 import { ClassGridSkeleton } from "@/components/ui/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  isEarlyBird,
+  type DiscountSettings,
+  DEFAULT_DISCOUNT_SETTINGS,
+} from "@/lib/pricing";
 
 const SETTINGS_KEYS = [
   "member_discount_pct",
   "military_discount_pct",
+  "sibling_discount_2nd_pct",
+  "sibling_discount_3rd_pct",
+  "early_bird_discount_pct",
+  "multi_session_discount_pct",
+  "max_discount_stack",
+  "referral_credit_amount",
+  "annual_registration_fee",
 ];
 
 export function BookPageClient() {
@@ -43,16 +55,26 @@ export function BookPageClient() {
   const [enrollingClass, setEnrollingClass] = useState<ClassWithDetails | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const memberDiscountPct = getNumber("member_discount_pct", 15);
-  const militaryDiscountPct = getNumber("military_discount_pct", 20);
   const isMember = !!profile?.hac_member_id;
   const isMilitary = !!profile?.is_military;
+
+  const discountSettings: DiscountSettings = useMemo(() => ({
+    member_discount_pct: getNumber("member_discount_pct", DEFAULT_DISCOUNT_SETTINGS.member_discount_pct),
+    military_discount_pct: getNumber("military_discount_pct", DEFAULT_DISCOUNT_SETTINGS.military_discount_pct),
+    sibling_discount_2nd_pct: getNumber("sibling_discount_2nd_pct", DEFAULT_DISCOUNT_SETTINGS.sibling_discount_2nd_pct),
+    sibling_discount_3rd_pct: getNumber("sibling_discount_3rd_pct", DEFAULT_DISCOUNT_SETTINGS.sibling_discount_3rd_pct),
+    early_bird_discount_pct: getNumber("early_bird_discount_pct", DEFAULT_DISCOUNT_SETTINGS.early_bird_discount_pct),
+    multi_session_discount_pct: getNumber("multi_session_discount_pct", DEFAULT_DISCOUNT_SETTINGS.multi_session_discount_pct),
+    max_discount_stack: getNumber("max_discount_stack", DEFAULT_DISCOUNT_SETTINGS.max_discount_stack),
+    referral_credit_amount: getNumber("referral_credit_amount", DEFAULT_DISCOUNT_SETTINGS.referral_credit_amount),
+    annual_registration_fee: getNumber("annual_registration_fee", DEFAULT_DISCOUNT_SETTINGS.annual_registration_fee),
+  }), [getNumber]);
 
   // Handle payment return toasts
   useEffect(() => {
     const payment = searchParams.get("payment");
     if (payment === "cancelled") {
-      toast.info("Payment was cancelled. Your enrollment is still pending.");
+      toast.info("Payment not completed. You can finish paying from your dashboard.");
       router.replace("/book");
     }
   }, [searchParams, router]);
@@ -72,50 +94,34 @@ export function BookPageClient() {
       const start = new Date(session.priority_enrollment_start);
       const end = new Date(session.priority_enrollment_end);
       if (now < start || now > end) return false;
-
-      // During priority window, only returning families can enroll
-      // For now, treat all logged-in families as non-returning (could be enhanced)
-      // TODO: check if family has past enrollments in previous sessions
       return false;
     },
     []
   );
 
-  // Price for a class based on user status
-  const getClassPrice = useCallback(
-    (cls: ClassWithDetails): { price: number; originalPrice?: number; earlyBirdActive: boolean; earlyBirdPct: number } => {
-      // Pick base price based on status
-      let base: number;
-      if (isMilitary && cls.military_price != null) {
-        base = cls.military_price;
-      } else if (isMember && cls.member_price != null) {
-        base = cls.member_price;
-      } else {
-        base = cls.non_member_price ?? cls.member_price ?? 0;
+  // Max discount hint for logged-in user
+  const getMaxDiscountHint = useCallback(
+    (cls: ClassWithDetails): number => {
+      let totalPct = 0;
+      let count = 0;
+      const maxStack = discountSettings.max_discount_stack;
+
+      // Early bird is usually the biggest
+      if (isEarlyBird(cls.session.start_date)) {
+        totalPct += discountSettings.early_bird_discount_pct;
+        count++;
       }
-
-      // Early bird discount
-      const session = cls.session;
-      const earlyBirdPct = session.early_bird_discount_percent ?? 0;
-      const earlyBirdDeadline = session.early_bird_deadline
-        ? new Date(session.early_bird_deadline)
-        : null;
-      const earlyBirdActive =
-        earlyBirdPct > 0 && earlyBirdDeadline != null && new Date() < earlyBirdDeadline;
-
-      if (earlyBirdActive) {
-        const discounted = base * (1 - earlyBirdPct / 100);
-        return {
-          price: Math.round(discounted * 100) / 100,
-          originalPrice: base,
-          earlyBirdActive: true,
-          earlyBirdPct,
-        };
+      if (count < maxStack && isMember) {
+        totalPct += discountSettings.member_discount_pct;
+        count++;
       }
-
-      return { price: base, earlyBirdActive: false, earlyBirdPct: 0 };
+      if (count < maxStack && isMilitary) {
+        totalPct += discountSettings.military_discount_pct;
+        count++;
+      }
+      return totalPct;
     },
-    [isMember, isMilitary]
+    [isMember, isMilitary, discountSettings]
   );
 
   const handleEnroll = useCallback(
@@ -129,11 +135,6 @@ export function BookPageClient() {
     },
     [user, router]
   );
-
-  const enrollingPriceInfo = useMemo(() => {
-    if (!enrollingClass) return { price: 0, earlyBirdActive: false, earlyBirdPct: 0 };
-    return getClassPrice(enrollingClass);
-  }, [enrollingClass, getClassPrice]);
 
   // Loading state
   if (loading && sessions.length === 0) {
@@ -248,15 +249,15 @@ export function BookPageClient() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {classes.map((cls) => {
-                const priceInfo = getClassPrice(cls);
+                const basePrice = cls.base_price ?? cls.non_member_price ?? 0;
+                const maxDiscount = user ? getMaxDiscountHint(cls) : 0;
                 return (
                   <ClassCard
                     key={cls.id}
                     cls={cls}
-                    price={priceInfo.price}
-                    originalPrice={priceInfo.originalPrice}
-                    earlyBirdActive={priceInfo.earlyBirdActive}
-                    earlyBirdPct={priceInfo.earlyBirdPct}
+                    basePrice={basePrice}
+                    maxDiscountPct={maxDiscount}
+                    isLoggedIn={!!user}
                     onEnroll={handleEnroll}
                     priorityBlocked={isPriorityBlocked(cls)}
                   />
@@ -296,26 +297,23 @@ export function BookPageClient() {
       </Sheet>
 
       {/* Enrollment Dialog */}
-      <EnrollmentDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        cls={enrollingClass}
-        swimmers={swimmers}
-        getWaiverStatus={getWaiverStatus}
-        price={enrollingPriceInfo.price}
-        originalPrice={enrollingPriceInfo.originalPrice}
-        earlyBirdActive={enrollingPriceInfo.earlyBirdActive}
-        earlyBirdPct={enrollingPriceInfo.earlyBirdPct}
-        memberDiscountPct={memberDiscountPct}
-        militaryDiscountPct={militaryDiscountPct}
-        isMember={isMember}
-        isMilitary={isMilitary}
-        familyCredits={familyCredits}
-        onSuccess={() => {
-          setDialogOpen(false);
-          setEnrollingClass(null);
-        }}
-      />
+      {enrollingClass && (
+        <EnrollmentDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          cls={enrollingClass}
+          swimmers={swimmers}
+          getWaiverStatus={getWaiverStatus}
+          isMember={isMember}
+          isMilitary={isMilitary}
+          familyCredits={familyCredits}
+          discountSettings={discountSettings}
+          onSuccess={() => {
+            setDialogOpen(false);
+            setEnrollingClass(null);
+          }}
+        />
+      )}
     </div>
   );
 }

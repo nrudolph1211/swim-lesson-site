@@ -20,43 +20,38 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { SWIM_LEVELS } from "@/lib/swim-utils";
+import {
+  PROGRAM_DEFAULTS,
+  getDefaultBasePrice,
+  type ProgramType,
+  type SeasonType,
+} from "@/lib/pricing";
 
 export interface ClassFormData {
   level: number;
   class_type: string;
+  program_type: string;
   day_of_week: string[];
   start_time: string;
   end_time: string;
   instructor_id: string;
   max_capacity: number;
-  member_price: string;
-  non_member_price: string;
-  military_price: string;
+  base_price: string;
 }
 
 const EMPTY_FORM: ClassFormData = {
   level: 1,
   class_type: "group",
+  program_type: "",
   day_of_week: [],
   start_time: "09:00",
   end_time: "09:30",
   instructor_id: "",
   max_capacity: 4,
-  member_price: "",
-  non_member_price: "",
-  military_price: "",
+  base_price: "",
 };
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-const CAPACITY_BY_LEVEL: Record<number, number> = {
-  1: 4,
-  2: 4,
-  3: 5,
-  4: 6,
-  5: 6,
-};
 
 interface InstructorOption {
   id: string;
@@ -69,7 +64,34 @@ interface ClassFormDialogProps {
   initial?: Partial<ClassFormData> | null;
   title: string;
   instructors: InstructorOption[];
+  seasonType?: SeasonType;
   onSave: (data: ClassFormData) => Promise<void>;
+}
+
+const PROGRAM_TYPE_OPTIONS: { value: ProgramType; label: string }[] = [
+  { value: "parent_child", label: "Parent & Child (6mo–3yr)" },
+  { value: "preschool_group", label: "Preschool Group (3–5yr)" },
+  { value: "youth_beginner", label: "Youth Beginner L1–4 (6–12yr)" },
+  { value: "youth_intermediate", label: "Youth Intermediate+ L5 (6–12yr)" },
+  { value: "teen_adult", label: "Teen/Adult Group (13+)" },
+  { value: "semi_private", label: "Semi-Private (All Ages)" },
+  { value: "private_single", label: "Private — Single Lesson" },
+  { value: "private_4pack", label: "Private — 4-Lesson Package" },
+  { value: "private_8pack", label: "Private — 8-Lesson Package" },
+];
+
+function deriveClassType(programType: string): string {
+  if (programType.startsWith("private")) return "private";
+  if (programType === "semi_private") return "semi_private";
+  return "group";
+}
+
+function deriveEndTime(startTime: string, durationMinutes: number): string {
+  const [h, m] = startTime.split(":").map(Number);
+  const totalMin = h * 60 + m + durationMinutes;
+  const eh = Math.floor(totalMin / 60);
+  const em = totalMin % 60;
+  return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
 }
 
 export function ClassFormDialog({
@@ -78,6 +100,7 @@ export function ClassFormDialog({
   initial,
   title,
   instructors,
+  seasonType = "summer_intensive",
   onSave,
 }: ClassFormDialogProps) {
   const [form, setForm] = useState<ClassFormData>(EMPTY_FORM);
@@ -101,14 +124,25 @@ export function ClassFormDialog({
     }));
   };
 
-  const handleLevelChange = (level: string | null) => {
-    if (!level) return;
-    const lvl = Number(level);
-    set("level", lvl);
-    // Auto-fill capacity if using default
-    if (form.max_capacity === CAPACITY_BY_LEVEL[form.level] || form.max_capacity === 0) {
-      set("max_capacity", CAPACITY_BY_LEVEL[lvl] ?? 4);
-    }
+  const handleProgramTypeChange = (programType: string | null) => {
+    if (!programType) return;
+    const pt = programType as ProgramType;
+    const defaults = PROGRAM_DEFAULTS[pt];
+    if (!defaults) return;
+
+    const defaultPrice = getDefaultBasePrice(pt, seasonType);
+    const classType = deriveClassType(pt);
+    const endTime = deriveEndTime(form.start_time, defaults.durationMinutes);
+
+    setForm((f) => ({
+      ...f,
+      program_type: pt,
+      class_type: classType,
+      level: defaults.level ?? f.level,
+      max_capacity: defaults.maxCapacity,
+      base_price: String(defaultPrice),
+      end_time: endTime,
+    }));
   };
 
   const handleSave = async () => {
@@ -125,7 +159,12 @@ export function ClassFormDialog({
     form.day_of_week.length > 0 &&
     form.start_time &&
     form.end_time &&
-    form.max_capacity > 0;
+    form.max_capacity > 0 &&
+    form.base_price;
+
+  const defaultPrice = form.program_type
+    ? getDefaultBasePrice(form.program_type as ProgramType, seasonType)
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -136,46 +175,47 @@ export function ClassFormDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Level</Label>
-              <Select
-                value={String(form.level)}
-                onValueChange={handleLevelChange}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SWIM_LEVELS.map((l) => (
-                    <SelectItem key={l.id} value={String(l.id)}>
-                      <span
-                        className="mr-2 inline-block size-2 rounded-full"
-                        style={{ backgroundColor: l.color }}
-                      />
-                      L{l.id}: {l.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Program Type */}
+          <div className="space-y-2">
+            <Label>Program Type</Label>
+            <Select
+              value={form.program_type}
+              onValueChange={handleProgramTypeChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select program type" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROGRAM_TYPE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div className="space-y-2">
-              <Label>Class Type</Label>
-              <Select
-                value={form.class_type}
-                onValueChange={(v) => set("class_type", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="group">Group</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                  <SelectItem value="semi_private">Semi-Private</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Base Price */}
+          <div className="space-y-2">
+            <Label htmlFor="c-price">Session Price ($)</Label>
+            <Input
+              id="c-price"
+              type="number"
+              step="0.01"
+              min={0}
+              value={form.base_price}
+              onChange={(e) => set("base_price", e.target.value)}
+              placeholder="140.00"
+            />
+            {defaultPrice != null && (
+              <p className="text-xs text-muted-foreground">
+                Default for {PROGRAM_TYPE_OPTIONS.find((o) => o.value === form.program_type)?.label}: ${defaultPrice.toFixed(2)}
+                {seasonType !== "summer_intensive" && " (shoulder season)"}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              This is the base session price. Discounts (member, military, early-bird, sibling) are applied at checkout.
+            </p>
           </div>
 
           {/* Days */}
@@ -250,49 +290,6 @@ export function ClassFormDialog({
               value={form.max_capacity}
               onChange={(e) => set("max_capacity", Number(e.target.value))}
             />
-            <p className="text-xs text-muted-foreground">
-              Default: L1-2 = 4, L3 = 5, L4-5 = 6
-            </p>
-          </div>
-
-          {/* Prices */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="c-price-member">Member $</Label>
-              <Input
-                id="c-price-member"
-                type="number"
-                step="0.01"
-                min={0}
-                value={form.member_price}
-                onChange={(e) => set("member_price", e.target.value)}
-                placeholder="150.00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="c-price-non">Non-Member $</Label>
-              <Input
-                id="c-price-non"
-                type="number"
-                step="0.01"
-                min={0}
-                value={form.non_member_price}
-                onChange={(e) => set("non_member_price", e.target.value)}
-                placeholder="175.00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="c-price-mil">Military $</Label>
-              <Input
-                id="c-price-mil"
-                type="number"
-                step="0.01"
-                min={0}
-                value={form.military_price}
-                onChange={(e) => set("military_price", e.target.value)}
-                placeholder="135.00"
-              />
-            </div>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,10 +14,11 @@ import {
   DialogDescription,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Calendar, Clock, User, Gift, XCircle, Loader2 } from "lucide-react";
-import { getLevelName, getLevelColor, getLevelTextColor } from "@/lib/swim-utils";
+import { Calendar, Clock, User, Gift, XCircle, Loader2, CreditCard } from "lucide-react";
+import { getLevelName, getLevelColor, getLevelTextColor, formatPriceDollars } from "@/lib/swim-utils";
 import { formatTime } from "@/lib/date-utils";
 import { toast } from "sonner";
+import { calculateRefund } from "@/lib/pricing";
 import type { EnrollmentWithDetails } from "@/hooks/useEnrollments";
 import { MakeUpBookingDialog } from "./MakeUpBookingDialog";
 import { AddToCalendar } from "@/components/calendar/AddToCalendar";
@@ -28,11 +30,19 @@ interface EnrollmentCardProps {
 }
 
 export function EnrollmentCard({ enrollment, onCancel, onRefresh }: EnrollmentCardProps) {
+  const router = useRouter();
   const [cancelling, setCancelling] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   const cls = enrollment.class;
   const swimmer = enrollment.swimmer;
+  const isPending = enrollment.payment_status === "pending" && enrollment.status === "confirmed";
+
+  // Calculate refund for cancellation dialog
+  const refundInfo = cls?.session?.start_date
+    ? calculateRefund(enrollment.amount_due ?? 0, cls.session.start_date)
+    : null;
 
   const handleCancel = async () => {
     setCancelling(true);
@@ -47,6 +57,34 @@ export function EnrollmentCard({ enrollment, onCancel, onRefresh }: EnrollmentCa
     }
   };
 
+  const handleCompletePayment = async () => {
+    setPaying(true);
+    try {
+      const res = await fetch("/api/stripe/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enrollment_id: enrollment.id,
+          class_id: cls?.id,
+          swimmer_name: `${swimmer?.first_name} ${swimmer?.last_name}`,
+          session_name: cls?.session?.name ?? "",
+          level: cls?.level ?? 1,
+          amount: Math.round((enrollment.amount_due ?? 0) * 100),
+          registration_fee: 0,
+          credits_applied: 0,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create checkout");
+      const { url } = await res.json();
+      router.push(url);
+    } catch {
+      toast.error("Failed to start payment. Please try again.");
+    } finally {
+      setPaying(false);
+    }
+  };
+
   const paymentBadge = () => {
     switch (enrollment.payment_status) {
       case "paid":
@@ -54,12 +92,16 @@ export function EnrollmentCard({ enrollment, onCancel, onRefresh }: EnrollmentCa
       case "refunded":
         return <Badge variant="outline" className="border-yellow-500 text-yellow-600">Refunded</Badge>;
       default:
-        return <Badge variant="outline" className="border-orange-500 text-orange-600">Pending</Badge>;
+        return (
+          <Badge className="border-orange-500 bg-orange-100 text-orange-700">
+            Payment Pending
+          </Badge>
+        );
     }
   };
 
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card className={`transition-shadow hover:shadow-md ${isPending ? "border-orange-300" : ""}`}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div>
@@ -103,6 +145,28 @@ export function EnrollmentCard({ enrollment, onCancel, onRefresh }: EnrollmentCa
           )}
         </div>
 
+        {/* Payment Pending CTA */}
+        {isPending && (
+          <div className="mt-4 rounded-md border border-orange-200 bg-orange-50 p-3">
+            <p className="mb-2 text-sm font-medium text-orange-800">
+              Complete your payment to secure {swimmer?.first_name}&apos;s spot
+            </p>
+            <Button
+              onClick={handleCompletePayment}
+              disabled={paying}
+              size="sm"
+              className="w-full"
+            >
+              {paying ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <CreditCard className="mr-2 size-4" />
+              )}
+              Complete Payment
+            </Button>
+          </div>
+        )}
+
         {enrollment.status === "confirmed" && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <AddToCalendar enrollment={enrollment} />
@@ -130,10 +194,26 @@ export function EnrollmentCard({ enrollment, onCancel, onRefresh }: EnrollmentCa
                 <DialogHeader>
                   <DialogTitle>Cancel Enrollment?</DialogTitle>
                   <DialogDescription>
-                    This will cancel {swimmer?.first_name}&apos;s enrollment in{" "}
-                    {cls?.session?.name}. This action cannot be undone.
+                    Cancel {swimmer?.first_name}&apos;s enrollment in {cls?.session?.name}.
                   </DialogDescription>
                 </DialogHeader>
+
+                {refundInfo && enrollment.payment_status === "paid" && (
+                  <div className="rounded-md border p-3 text-sm">
+                    {refundInfo.refundPercent > 0 ? (
+                      <p>
+                        <span className="font-medium">Refund: {formatPriceDollars(refundInfo.refundAmount)}</span>{" "}
+                        ({refundInfo.reason})
+                      </p>
+                    ) : (
+                      <p className="text-destructive">{refundInfo.reason}</p>
+                    )}
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Registration fees are non-refundable.
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-2">
                   <DialogClose render={<Button variant="outline">Keep Enrollment</Button>} />
                   <Button

@@ -11,6 +11,9 @@ export interface EnrollmentWithDetails {
   status: string;
   payment_status: string;
   makeup_credits: number;
+  amount_due: number | null;
+  credits_applied: number | null;
+  discount_breakdown: Record<string, unknown> | null;
   enrolled_at: string;
   cancelled_at: string | null;
   notes: string | null;
@@ -72,6 +75,7 @@ export function useEnrollments() {
       .select(
         `
         id, swimmer_id, class_id, status, payment_status, makeup_credits,
+        amount_due, credits_applied, discount_breakdown,
         enrolled_at, cancelled_at, notes,
         swimmer:swimmers!inner(id, first_name, last_name, current_level),
         class:classes!inner(

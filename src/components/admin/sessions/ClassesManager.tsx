@@ -31,10 +31,12 @@ interface ClassRow {
   id: string;
   level: number;
   class_type: string;
+  program_type: string | null;
   day_of_week: string[];
   start_time: string;
   end_time: string;
   max_capacity: number;
+  base_price: number | null;
   member_price: number | null;
   non_member_price: number | null;
   military_price: number | null;
@@ -115,7 +117,7 @@ export function ClassesManager({
         supabase
           .from("classes")
           .select(
-            "id, level, class_type, day_of_week, start_time, end_time, max_capacity, member_price, non_member_price, military_price, instructor_id, is_active, instructor:instructors(profile:profiles(full_name))"
+            "id, level, class_type, program_type, day_of_week, start_time, end_time, max_capacity, base_price, member_price, non_member_price, military_price, instructor_id, is_active, instructor:instructors(profile:profiles(full_name))"
           )
           .eq("session_id", sessionId)
           .eq("is_active", true)
@@ -205,14 +207,13 @@ export function ClassesManager({
     setDialogInitial({
       level: c.level,
       class_type: c.class_type,
+      program_type: c.program_type ?? "",
       day_of_week: c.day_of_week,
       start_time: c.start_time?.slice(0, 5) ?? "09:00",
       end_time: c.end_time?.slice(0, 5) ?? "09:30",
       instructor_id: c.instructor_id ?? "",
       max_capacity: c.max_capacity,
-      member_price: c.member_price?.toString() ?? "",
-      non_member_price: c.non_member_price?.toString() ?? "",
-      military_price: c.military_price?.toString() ?? "",
+      base_price: c.base_price?.toString() ?? "",
     });
     setDialogOpen(true);
   };
@@ -223,35 +224,34 @@ export function ClassesManager({
     setDialogInitial({
       level: c.level,
       class_type: c.class_type,
+      program_type: c.program_type ?? "",
       day_of_week: c.day_of_week,
       start_time: c.start_time?.slice(0, 5) ?? "09:00",
       end_time: c.end_time?.slice(0, 5) ?? "09:30",
       instructor_id: c.instructor_id ?? "",
       max_capacity: c.max_capacity,
-      member_price: c.member_price?.toString() ?? "",
-      non_member_price: c.non_member_price?.toString() ?? "",
-      military_price: c.military_price?.toString() ?? "",
+      base_price: c.base_price?.toString() ?? "",
     });
     setDialogOpen(true);
   };
 
   const handleSave = async (data: ClassFormData) => {
+    const basePrice = data.base_price ? Number(data.base_price) : null;
     const payload = {
       session_id: sessionId,
       level: data.level,
       class_type: data.class_type,
+      program_type: data.program_type || null,
       day_of_week: data.day_of_week,
       start_time: data.start_time,
       end_time: data.end_time,
       instructor_id: data.instructor_id || null,
       max_capacity: data.max_capacity,
-      member_price: data.member_price ? Number(data.member_price) : null,
-      non_member_price: data.non_member_price
-        ? Number(data.non_member_price)
-        : null,
-      military_price: data.military_price
-        ? Number(data.military_price)
-        : null,
+      base_price: basePrice,
+      // Keep legacy columns in sync for backward compatibility
+      member_price: basePrice,
+      non_member_price: basePrice,
+      military_price: basePrice,
     };
 
     if (editingId) {
@@ -355,7 +355,7 @@ export function ClassesManager({
                 <TableHead className="hidden md:table-cell">Instructor</TableHead>
                 <TableHead>Capacity</TableHead>
                 <TableHead className="hidden lg:table-cell">Type</TableHead>
-                <TableHead className="hidden lg:table-cell">Prices</TableHead>
+                <TableHead className="hidden lg:table-cell">Price</TableHead>
                 <TableHead className="w-[60px]" />
               </TableRow>
             </TableHeader>
@@ -397,10 +397,8 @@ export function ClassesManager({
                   <TableCell className="hidden text-sm lg:table-cell">
                     {formatType(c.class_type)}
                   </TableCell>
-                  <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
-                    M: {formatPrice(c.member_price)} / NM:{" "}
-                    {formatPrice(c.non_member_price)} / Mil:{" "}
-                    {formatPrice(c.military_price)}
+                  <TableCell className="hidden text-sm lg:table-cell">
+                    {formatPrice(c.base_price)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

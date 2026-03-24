@@ -4,16 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Calendar, Clock, User, Users } from "lucide-react";
-import { getLevelColor, getLevelTextColor, getLevelName, formatPrice } from "@/lib/swim-utils";
+import { getLevelColor, getLevelTextColor, getLevelName, formatPriceDollars } from "@/lib/swim-utils";
 import { formatTime } from "@/lib/date-utils";
+import { PROGRAM_DEFAULTS, type ProgramType } from "@/lib/pricing";
 import type { ClassWithDetails } from "@/hooks/useClasses";
 
 interface ClassCardProps {
   cls: ClassWithDetails;
-  price: number;
-  originalPrice?: number;
-  earlyBirdActive: boolean;
-  earlyBirdPct: number;
+  basePrice: number;
+  maxDiscountPct: number;
+  isLoggedIn: boolean;
   onEnroll: (cls: ClassWithDetails) => void;
   priorityBlocked: boolean;
 }
@@ -38,10 +38,9 @@ function formatDuration(start: string, end: string): string {
 
 export function ClassCard({
   cls,
-  price,
-  originalPrice,
-  earlyBirdActive,
-  earlyBirdPct,
+  basePrice,
+  maxDiscountPct,
+  isLoggedIn,
   onEnroll,
   priorityBlocked,
 }: ClassCardProps) {
@@ -51,6 +50,12 @@ export function ClassCard({
     (cls.confirmed_count / cls.max_capacity) * 100,
     100
   );
+
+  const programDefaults = cls.program_type
+    ? PROGRAM_DEFAULTS[cls.program_type as ProgramType]
+    : null;
+  const lessons = programDefaults?.lessons ?? 8;
+  const perLesson = lessons > 0 ? basePrice / lessons : basePrice;
 
   return (
     <div className="rounded-lg border bg-card p-5 transition-shadow hover:shadow-md">
@@ -66,9 +71,9 @@ export function ClassCard({
             {formatClassType(cls.class_type)}
           </Badge>
         </div>
-        {earlyBirdActive && (
+        {maxDiscountPct > 0 && (
           <Badge className="bg-green-500 text-white">
-            Save {earlyBirdPct}%
+            Save up to {maxDiscountPct}%
           </Badge>
         )}
       </div>
@@ -119,19 +124,19 @@ export function ClassCard({
       {/* Price + Action */}
       <div className="mt-4 flex items-center justify-between">
         <div>
-          {earlyBirdActive && originalPrice ? (
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm text-muted-foreground line-through">
-                {formatPrice(originalPrice * 100)}
-              </span>
-              <span className="text-lg font-bold text-foreground">
-                {formatPrice(price * 100)}
-              </span>
-            </div>
-          ) : (
-            <span className="text-lg font-bold text-foreground">
-              {formatPrice(price * 100)}
-            </span>
+          <span className="text-lg font-bold text-foreground">
+            {formatPriceDollars(basePrice)}
+          </span>
+          <span className="text-xs text-muted-foreground"> / session</span>
+          {lessons > 1 && (
+            <p className="text-xs text-muted-foreground">
+              {formatPriceDollars(perLesson)} per lesson ({lessons} lessons)
+            </p>
+          )}
+          {!isLoggedIn && (
+            <p className="mt-0.5 text-[10px] text-muted-foreground">
+              Sign in for member & military pricing
+            </p>
           )}
         </div>
         {priorityBlocked ? (

@@ -12,6 +12,8 @@ export interface ClassWithDetails {
   start_time: string;
   end_time: string;
   max_capacity: number;
+  base_price: number | null;
+  program_type: string | null;
   member_price: number | null;
   non_member_price: number | null;
   military_price: number | null;
@@ -28,6 +30,7 @@ export interface ClassWithDetails {
     start_date: string;
     end_date: string;
     status: string;
+    season_type: string;
     early_bird_discount_percent: number;
     early_bird_deadline: string | null;
     priority_enrollment_start: string | null;
@@ -43,6 +46,7 @@ export interface SessionOption {
   status: string;
   start_date: string;
   end_date: string;
+  season_type: string;
   early_bird_discount_percent: number;
   early_bird_deadline: string | null;
   priority_enrollment_start: string | null;
@@ -75,7 +79,7 @@ export function useClasses() {
     const { data } = await supabase
       .from("sessions")
       .select(
-        "id, name, status, start_date, end_date, early_bird_discount_percent, early_bird_deadline, priority_enrollment_start, priority_enrollment_end, re_enrollment_priority_enabled"
+        "id, name, status, start_date, end_date, season_type, early_bird_discount_percent, early_bird_deadline, priority_enrollment_start, priority_enrollment_end, re_enrollment_priority_enabled"
       )
       .eq("status", "enrollment_open")
       .order("start_date");
@@ -106,10 +110,10 @@ export function useClasses() {
       .select(
         `
         id, session_id, instructor_id, level, day_of_week, start_time, end_time,
-        max_capacity, member_price, non_member_price, military_price, class_type, is_active,
+        max_capacity, base_price, program_type, member_price, non_member_price, military_price, class_type, is_active,
         instructor:instructors(id, bio, profile:profiles(full_name)),
         session:sessions!inner(
-          id, name, start_date, end_date, status,
+          id, name, start_date, end_date, status, season_type,
           early_bird_discount_percent, early_bird_deadline,
           priority_enrollment_start, priority_enrollment_end,
           re_enrollment_priority_enabled

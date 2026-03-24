@@ -448,37 +448,36 @@ export default function HomePage() {
             Simple, Transparent Pricing
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-lg text-muted-foreground">
-            Pricing varies by level and session length. Here are our typical
-            ranges.
+            Session-based pricing with small class sizes and expert instruction.
           </p>
 
           <div className="mx-auto mt-14 grid max-w-4xl gap-6 sm:grid-cols-3">
-            {/* Member */}
+            {/* Group Lessons */}
             <Card className="relative overflow-hidden border-primary/30 transition-shadow hover:shadow-lg">
               <div className="absolute inset-x-0 top-0 h-1 bg-primary" />
               <CardContent className="p-6 text-center">
                 <Badge variant="secondary" className="mb-3">
-                  HAC Member
+                  Group Lessons
                 </Badge>
                 <div className="mt-2">
-                  <span className="font-heading text-4xl font-bold">$65</span>
-                  <span className="text-muted-foreground"> – $95</span>
+                  <span className="font-heading text-4xl font-bold">$120</span>
+                  <span className="text-muted-foreground"> – $160</span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  per session
+                  per session (8 lessons)
                 </p>
                 <ul className="mt-5 space-y-2 text-left text-sm">
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-green-500" />
-                    Priority enrollment window
+                    Small classes (4–6 students max)
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-green-500" />
-                    Early bird discounts
+                    Ages 6 months through adult
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-green-500" />
-                    Lowest per-class rate
+                    25–45 minute classes
                   </li>
                 </ul>
                 <Link href="/book" className="mt-6 block">
@@ -487,31 +486,30 @@ export default function HomePage() {
               </CardContent>
             </Card>
 
-            {/* Non-Member */}
+            {/* Semi-Private */}
             <Card className="transition-shadow hover:shadow-lg">
               <CardContent className="p-6 text-center">
                 <Badge variant="outline" className="mb-3">
-                  Non-Member
+                  Semi-Private
                 </Badge>
                 <div className="mt-2">
-                  <span className="font-heading text-4xl font-bold">$80</span>
-                  <span className="text-muted-foreground"> – $115</span>
+                  <span className="font-heading text-4xl font-bold">$280</span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  per session
+                  per session (8 lessons, 2 students)
                 </p>
                 <ul className="mt-5 space-y-2 text-left text-sm">
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-green-500" />
-                    No membership required
+                    Personalized attention
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-green-500" />
-                    Same great instruction
+                    All ages and skill levels
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-green-500" />
-                    Makeup credits included
+                    30 minute classes
                   </li>
                 </ul>
                 <Link href="/book" className="mt-6 block">
@@ -522,7 +520,7 @@ export default function HomePage() {
               </CardContent>
             </Card>
 
-            {/* Military */}
+            {/* Private */}
             <Card className="relative overflow-hidden transition-shadow hover:shadow-lg">
               <div className="absolute inset-x-0 top-0 h-1 bg-accent" />
               <CardContent className="p-6 text-center">
@@ -530,37 +528,43 @@ export default function HomePage() {
                   variant="secondary"
                   className="mb-3 bg-accent/10 text-accent"
                 >
-                  Military
+                  Private Lessons
                 </Badge>
                 <div className="mt-2">
-                  <span className="font-heading text-4xl font-bold">$55</span>
-                  <span className="text-muted-foreground"> – $85</span>
+                  <span className="text-sm text-muted-foreground">From </span>
+                  <span className="font-heading text-4xl font-bold">$47</span>
+                  <span className="text-muted-foreground"> /lesson</span>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  per session
+                  Single lessons or save with packages
                 </p>
                 <ul className="mt-5 space-y-2 text-left text-sm">
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-green-500" />
-                    Fort Cavazos families
+                    One-on-one instruction
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-green-500" />
-                    Active duty &amp; dependents
+                    Flexible scheduling
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="size-4 text-green-500" />
-                    Deepest discount available
+                    4-pack and 8-pack savings
                   </li>
                 </ul>
-                <Link href="/register" className="mt-6 block">
+                <Link href="/book" className="mt-6 block">
                   <Button variant="outline" className="w-full">
-                    Sign Up &amp; Save
+                    View Available Classes
                   </Button>
                 </Link>
               </CardContent>
             </Card>
           </div>
+
+          <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-muted-foreground">
+            Military, member, sibling &amp; early-bird discounts available — up to 25% off.
+            $30 annual registration fee per family.
+          </p>
         </div>
       </section>
 

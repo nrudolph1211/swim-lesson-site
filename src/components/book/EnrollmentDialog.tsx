@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,16 +15,22 @@ import {
 } from "@/components/ui/dialog";
 import {
   AlertTriangle,
-  CheckCircle,
   Loader2,
   ShieldAlert,
   User,
+  Info,
 } from "lucide-react";
-import { getLevelColor, getLevelTextColor, getLevelName, formatPrice } from "@/lib/swim-utils";
+import { getLevelColor, getLevelTextColor, getLevelName, formatPriceDollars } from "@/lib/swim-utils";
 import { formatTime } from "@/lib/date-utils";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  calculateCheckoutPrice,
+  isEarlyBird,
+  type DiscountSettings,
+  type CheckoutPriceResult,
+} from "@/lib/pricing";
 import type { ClassWithDetails } from "@/hooks/useClasses";
 import type { SwimmerRow } from "@/hooks/useSwimmers";
 import Link from "next/link";
@@ -35,15 +41,10 @@ interface EnrollmentDialogProps {
   cls: ClassWithDetails | null;
   swimmers: SwimmerRow[];
   getWaiverStatus: (id: string) => "active" | "expiring" | "required";
-  price: number;
-  originalPrice?: number;
-  earlyBirdActive: boolean;
-  earlyBirdPct: number;
-  memberDiscountPct: number;
-  militaryDiscountPct: number;
   isMember: boolean;
   isMilitary: boolean;
   familyCredits: number;
+  discountSettings: DiscountSettings;
   onSuccess: () => void;
 }
 
@@ -55,84 +56,111 @@ export function EnrollmentDialog({
   cls,
   swimmers,
   getWaiverStatus,
-  price,
-  originalPrice,
-  earlyBirdActive,
-  earlyBirdPct,
-  memberDiscountPct,
-  militaryDiscountPct,
   isMember,
   isMilitary,
   familyCredits,
+  discountSettings,
   onSuccess,
 }: EnrollmentDialogProps) {
   const router = useRouter();
   const supabase = createClient();
   const [step, setStep] = useState<Step>("select-swimmer");
-  const [selectedSwimmer, setSelectedSwimmer] = useState<SwimmerRow | null>(
-    null
-  );
+  const [selectedSwimmer, setSelectedSwimmer] = useState<SwimmerRow | null>(null);
   const [applyCredits, setApplyCredits] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [siblingCount, setSiblingCount] = useState(0);
+  const [regFeeNeeded, setRegFeeNeeded] = useState(false);
+  const [existingEnrollment, setExistingEnrollment] = useState<{
+    id: string;
+    status: string;
+    payment_status: string;
+  } | null>(null);
 
-  const isFull = cls
-    ? cls.confirmed_count >= cls.max_capacity
-    : false;
+  const isFull = cls ? cls.confirmed_count >= cls.max_capacity : false;
+  const basePrice = cls ? (cls.base_price ?? cls.non_member_price ?? 0) : 0;
 
-  const levelMismatch = useMemo(() => {
-    if (!selectedSwimmer || !cls) return null;
-    const diff = Math.abs(selectedSwimmer.current_level - cls.level);
-    if (diff === 0) return null;
-    if (diff === 1) return "warning";
-    return "blocked";
-  }, [selectedSwimmer, cls]);
+  // Check sibling count + registration fee when swimmer is selected
+  useEffect(() => {
+    if (!selectedSwimmer || !cls) return;
 
-  // Price calculation
-  const priceBreakdown = useMemo(() => {
-    if (!cls) return { base: 0, discount: 0, discountLabel: "", credits: 0, total: 0 };
+    const checkContext = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const base = price;
-    let discount = 0;
-    let discountLabel = "";
+      // Check sibling enrollments in this session
+      const { data: siblings } = await supabase
+        .from("enrollments")
+        .select("id, swimmer:swimmers!inner(family_id), class:classes!inner(session_id)")
+        .neq("swimmer_id", selectedSwimmer.id)
+        .eq("status", "confirmed");
 
-    if (earlyBirdActive && originalPrice) {
-      discount = originalPrice - price;
-      discountLabel = `Early bird (${earlyBirdPct}% off)`;
+      const sessionSiblings = (siblings ?? []).filter(
+        (e: Record<string, unknown>) => {
+          const sw = e.swimmer as Record<string, unknown> | Record<string, unknown>[];
+          const cl = e.class as Record<string, unknown> | Record<string, unknown>[];
+          const swimmer = Array.isArray(sw) ? sw[0] : sw;
+          const classObj = Array.isArray(cl) ? cl[0] : cl;
+          return swimmer?.family_id === user.id && classObj?.session_id === cls.session.id;
+        }
+      );
+      setSiblingCount(sessionSiblings.length);
+
+      // Check existing enrollment for duplicate prevention
+      const { data: existing } = await supabase
+        .from("enrollments")
+        .select("id, status, payment_status")
+        .eq("swimmer_id", selectedSwimmer.id)
+        .eq("class_id", cls.id)
+        .in("status", ["confirmed", "waitlisted"])
+        .maybeSingle();
+
+      setExistingEnrollment(existing ?? null);
+
+      // Check registration fee
+      const year = new Date().getFullYear();
+      const { data: regFee } = await supabase
+        .from("registration_fees")
+        .select("id, status")
+        .eq("family_id", user.id)
+        .eq("year", year)
+        .eq("status", "paid")
+        .maybeSingle();
+
+      setRegFeeNeeded(!regFee);
+    };
+
+    checkContext();
+  }, [selectedSwimmer, cls, supabase]);
+
+  // Calculate price using the pricing engine
+  const priceResult: CheckoutPriceResult = useMemo(() => {
+    if (!cls) {
+      return {
+        basePrice: 0,
+        discountsApplied: [],
+        discountsNotApplied: [],
+        subtotalAfterDiscounts: 0,
+        creditsApplied: 0,
+        totalDue: 0,
+        discountLimitReached: false,
+      };
     }
 
-    // Member/military discount applies to already-discounted price
-    let afterDiscount = base;
-    if (isMember && memberDiscountPct > 0) {
-      const memberDisc = base * (memberDiscountPct / 100);
-      discount += memberDisc;
-      afterDiscount -= memberDisc;
-      discountLabel += (discountLabel ? " + " : "") + `Member (${memberDiscountPct}% off)`;
-    } else if (isMilitary && militaryDiscountPct > 0) {
-      const milDisc = base * (militaryDiscountPct / 100);
-      discount += milDisc;
-      afterDiscount -= milDisc;
-      discountLabel += (discountLabel ? " + " : "") + `Military (${militaryDiscountPct}% off)`;
-    }
+    return calculateCheckoutPrice({
+      basePrice,
+      isMember,
+      isMilitary,
+      isEarlyBird: isEarlyBird(cls.session.start_date),
+      siblingIndex: siblingCount,
+      isMultiSession: false,
+      availableCredits: familyCredits,
+      applyCredits,
+      settings: discountSettings,
+    });
+  }, [cls, basePrice, isMember, isMilitary, siblingCount, familyCredits, applyCredits, discountSettings]);
 
-    const creditsApplied = applyCredits
-      ? Math.min(familyCredits, afterDiscount)
-      : 0;
-    const total = Math.max(afterDiscount - creditsApplied, 0);
-
-    return { base: originalPrice ?? base, discount, discountLabel, credits: creditsApplied, total };
-  }, [
-    cls,
-    price,
-    originalPrice,
-    earlyBirdActive,
-    earlyBirdPct,
-    isMember,
-    isMilitary,
-    memberDiscountPct,
-    militaryDiscountPct,
-    applyCredits,
-    familyCredits,
-  ]);
+  const regFeeAmount = regFeeNeeded ? discountSettings.annual_registration_fee : 0;
+  const grandTotal = priceResult.totalDue + regFeeAmount;
 
   const handleSelectSwimmer = (swimmer: SwimmerRow) => {
     const waiverStatus = getWaiverStatus(swimmer.id);
@@ -144,6 +172,7 @@ export function EnrollmentDialog({
   const handleBack = () => {
     setStep("select-swimmer");
     setSelectedSwimmer(null);
+    setExistingEnrollment(null);
   };
 
   const handleEnroll = async () => {
@@ -151,9 +180,26 @@ export function EnrollmentDialog({
     setSubmitting(true);
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Duplicate check
+      if (existingEnrollment) {
+        if (existingEnrollment.payment_status === "paid") {
+          toast.info(`${selectedSwimmer.first_name} is already enrolled and paid.`);
+          setSubmitting(false);
+          return;
+        }
+        // Pending payment — create new Stripe session for existing enrollment
+        if (existingEnrollment.payment_status === "pending" && existingEnrollment.status === "confirmed") {
+          await goToStripe(existingEnrollment.id, user.id);
+          return;
+        }
+      }
+
       const status = isFull ? "waitlisted" : "confirmed";
 
-      // Create enrollment
+      // Create enrollment with discount breakdown
       const { data: enrollment, error: enrollErr } = await supabase
         .from("enrollments")
         .insert({
@@ -161,76 +207,110 @@ export function EnrollmentDialog({
           class_id: cls.id,
           status,
           payment_status: "pending",
+          amount_due: priceResult.totalDue,
+          credits_applied: priceResult.creditsApplied,
+          discount_breakdown: {
+            discounts: priceResult.discountsApplied,
+            basePrice: priceResult.basePrice,
+            subtotal: priceResult.subtotalAfterDiscounts,
+          },
         })
         .select("id")
         .single();
 
-      if (enrollErr) throw enrollErr;
+      if (enrollErr) {
+        // Unique constraint violation = duplicate
+        if (enrollErr.code === "23505") {
+          toast.error(`${selectedSwimmer.first_name} is already enrolled in this class.`);
+          setSubmitting(false);
+          return;
+        }
+        throw enrollErr;
+      }
 
       if (isFull) {
-        toast.success(
-          `${selectedSwimmer.first_name} has been added to the waitlist.`
-        );
+        toast.success(`${selectedSwimmer.first_name} has been added to the waitlist.`);
         onSuccess();
         onOpenChange(false);
         resetState();
         return;
       }
 
-      // If credits cover the full amount, skip Stripe
-      if (priceBreakdown.total <= 0 && priceBreakdown.credits > 0) {
-        // Apply credits
+      // Credits cover full amount — skip Stripe
+      if (grandTotal <= 0 && priceResult.creditsApplied > 0) {
         await supabase.from("family_credits").insert({
-          family_id: (await supabase.auth.getUser()).data.user?.id,
-          amount: -priceBreakdown.credits,
+          family_id: user.id,
+          amount: -priceResult.creditsApplied,
           type: "used",
           description: `Applied to enrollment ${enrollment.id}`,
         });
-
         await supabase
           .from("enrollments")
           .update({ payment_status: "paid" })
           .eq("id", enrollment.id);
 
-        toast.success(
-          `${selectedSwimmer.first_name} is enrolled! Credits applied.`
-        );
+        if (regFeeNeeded) {
+          await supabase.from("registration_fees").upsert({
+            family_id: user.id,
+            year: new Date().getFullYear(),
+            status: "paid",
+            paid_at: new Date().toISOString(),
+            amount: 0,
+          }, { onConflict: "family_id,year" });
+        }
+
+        toast.success(`${selectedSwimmer.first_name} is enrolled! Credits applied.`);
         onSuccess();
         onOpenChange(false);
         resetState();
         return;
       }
 
-      // Otherwise, go to Stripe checkout
-      const res = await fetch("/api/stripe/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enrollment_id: enrollment.id,
-          class_id: cls.id,
-          swimmer_name: `${selectedSwimmer.first_name} ${selectedSwimmer.last_name}`,
-          session_name: cls.session.name,
-          level: cls.level,
-          amount: Math.round(priceBreakdown.total * 100),
-          credits_applied: Math.round(priceBreakdown.credits * 100),
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to create checkout session");
-
-      const { url } = await res.json();
-      router.push(url);
-    } catch {
+      // Go to Stripe
+      await goToStripe(enrollment.id, user.id);
+    } catch (err) {
+      console.error("Enrollment error:", err);
       toast.error("Something went wrong. Please try again.");
-    } finally {
       setSubmitting(false);
     }
+  };
+
+  const goToStripe = async (enrollmentId: string, userId: string) => {
+    if (!cls || !selectedSwimmer) return;
+
+    const discountSummary = priceResult.discountsApplied
+      .map((d) => `${d.name} (${d.percent}%): -$${d.amount.toFixed(2)}`)
+      .join("; ");
+
+    const res = await fetch("/api/stripe/create-checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enrollment_id: enrollmentId,
+        class_id: cls.id,
+        swimmer_name: `${selectedSwimmer.first_name} ${selectedSwimmer.last_name}`,
+        session_name: cls.session.name,
+        level: cls.level,
+        amount: Math.round(priceResult.totalDue * 100),
+        registration_fee: regFeeNeeded ? Math.round(regFeeAmount * 100) : 0,
+        credits_applied: Math.round(priceResult.creditsApplied * 100),
+        discount_breakdown: discountSummary,
+      }),
+    });
+
+    if (!res.ok) throw new Error("Failed to create checkout session");
+
+    const { url } = await res.json();
+    router.push(url);
   };
 
   const resetState = () => {
     setStep("select-swimmer");
     setSelectedSwimmer(null);
     setApplyCredits(false);
+    setExistingEnrollment(null);
+    setSiblingCount(0);
+    setRegFeeNeeded(false);
   };
 
   if (!cls) return null;
@@ -243,15 +323,14 @@ export function EnrollmentDialog({
         if (!o) resetState();
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isFull ? "Join Waitlist" : "Enroll"} — {cls.session.name}
           </DialogTitle>
           <DialogDescription>
-            L{cls.level}: {getLevelName(cls.level)} •{" "}
-            {cls.day_of_week.join(", ")} {formatTime(cls.start_time)} –{" "}
-            {formatTime(cls.end_time)}
+            L{cls.level}: {getLevelName(cls.level)} • {cls.day_of_week.join(", ")}{" "}
+            {formatTime(cls.start_time)} – {formatTime(cls.end_time)}
           </DialogDescription>
         </DialogHeader>
 
@@ -265,7 +344,7 @@ export function EnrollmentDialog({
               <EmptyState
                 icon={<User className="size-10" />}
                 title="No Swimmers Found"
-                description="Add a swimmer to your account before enrolling in a class."
+                description="Add a swimmer to your account before enrolling."
                 action={{ label: "Go to Dashboard", onClick: () => router.push("/dashboard") }}
               />
             ) : (
@@ -293,12 +372,8 @@ export function EnrollmentDialog({
                         <div
                           className="flex size-9 items-center justify-center rounded-full"
                           style={{
-                            backgroundColor: getLevelColor(
-                              swimmer.current_level
-                            ),
-                            color: getLevelTextColor(
-                              swimmer.current_level
-                            ),
+                            backgroundColor: getLevelColor(swimmer.current_level),
+                            color: getLevelTextColor(swimmer.current_level),
                           }}
                         >
                           <User className="size-4" />
@@ -308,32 +383,20 @@ export function EnrollmentDialog({
                             {swimmer.first_name} {swimmer.last_name}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Level {swimmer.current_level}:{" "}
-                            {getLevelName(swimmer.current_level)}
+                            Level {swimmer.current_level}: {getLevelName(swimmer.current_level)}
                           </p>
                         </div>
                       </div>
-
                       <div className="flex items-center gap-2">
                         {hasWarning && (
-                          <Badge
-                            variant="outline"
-                            className="border-yellow-500 text-yellow-600"
-                          >
+                          <Badge variant="outline" className="border-yellow-500 text-yellow-600">
                             <AlertTriangle className="mr-1 size-3" />
                             Level ±1
                           </Badge>
                         )}
-                        {isBlocked && (
-                          <Badge variant="destructive">
-                            Level mismatch
-                          </Badge>
-                        )}
+                        {isBlocked && <Badge variant="destructive">Level mismatch</Badge>}
                         {waiverRequired && (
-                          <Link
-                            href={`/waiver/${swimmer.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                          <Link href={`/waiver/${swimmer.id}`} onClick={(e) => e.stopPropagation()}>
                             <Badge variant="destructive">
                               <ShieldAlert className="mr-1 size-3" />
                               Sign Waiver
@@ -352,32 +415,48 @@ export function EnrollmentDialog({
         {/* Step 2: Order Summary */}
         {step === "summary" && selectedSwimmer && (
           <div className="space-y-4">
-            {levelMismatch === "warning" && (
+            {/* Duplicate enrollment warning */}
+            {existingEnrollment && (
+              <div className="flex items-start gap-2 rounded-md border border-blue-300 bg-blue-50 p-3 text-sm text-blue-800">
+                <Info className="mt-0.5 size-4 shrink-0" />
+                <div>
+                  {existingEnrollment.payment_status === "paid" ? (
+                    <p>{selectedSwimmer.first_name} is already enrolled and paid for this class.</p>
+                  ) : existingEnrollment.status === "waitlisted" ? (
+                    <p>{selectedSwimmer.first_name} is already on the waitlist for this class.</p>
+                  ) : (
+                    <p>
+                      {selectedSwimmer.first_name} is already enrolled — payment is pending.
+                      Click below to complete payment.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Level mismatch warning */}
+            {selectedSwimmer && cls && Math.abs(selectedSwimmer.current_level - cls.level) === 1 && (
               <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                 <p>
-                  {selectedSwimmer.first_name} is Level{" "}
-                  {selectedSwimmer.current_level} but this class is Level{" "}
-                  {cls.level}. The instructor may adjust placement after the
-                  first lesson.
+                  {selectedSwimmer.first_name} is Level {selectedSwimmer.current_level} but this class
+                  is Level {cls.level}. The instructor may adjust placement.
                 </p>
               </div>
             )}
 
+            {/* Order Summary */}
             <div className="rounded-lg border p-4">
               <h4 className="text-sm font-semibold">Order Summary</h4>
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Swimmer</span>
-                  <span>
-                    {selectedSwimmer.first_name} {selectedSwimmer.last_name}
-                  </span>
+                  <span>{selectedSwimmer.first_name} {selectedSwimmer.last_name}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Class</span>
                   <span>
-                    L{cls.level} — {cls.day_of_week.join(", ")}{" "}
-                    {formatTime(cls.start_time)}
+                    L{cls.level} — {cls.day_of_week.join(", ")} {formatTime(cls.start_time)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -389,13 +468,24 @@ export function EnrollmentDialog({
 
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Base Price</span>
-                  <span>{formatPrice(priceBreakdown.base * 100)}</span>
+                  <span>{formatPriceDollars(priceResult.basePrice)}</span>
                 </div>
 
-                {priceBreakdown.discount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>{priceBreakdown.discountLabel}</span>
-                    <span>−{formatPrice(priceBreakdown.discount * 100)}</span>
+                {priceResult.discountsApplied.map((d, i) => (
+                  <div key={i} className="flex justify-between text-green-600">
+                    <span>{d.name} ({d.percent}%)</span>
+                    <span>-{formatPriceDollars(d.amount)}</span>
+                  </div>
+                ))}
+
+                {priceResult.discountLimitReached && (
+                  <div className="flex items-start gap-1.5 rounded bg-muted/50 p-2 text-xs text-muted-foreground">
+                    <Info className="mt-0.5 size-3 shrink-0" />
+                    <span>
+                      Maximum {discountSettings.max_discount_stack} discounts applied.
+                      Additional eligible:{" "}
+                      {priceResult.discountsNotApplied.map((d) => `${d.name} (${d.percent}%)`).join(", ")}
+                    </span>
                   </div>
                 )}
 
@@ -411,19 +501,34 @@ export function EnrollmentDialog({
                         Apply ${familyCredits.toFixed(2)} credit
                       </Label>
                     </div>
-                    {applyCredits && (
+                    {applyCredits && priceResult.creditsApplied > 0 && (
                       <span className="text-green-600">
-                        −{formatPrice(priceBreakdown.credits * 100)}
+                        -{formatPriceDollars(priceResult.creditsApplied)}
                       </span>
                     )}
                   </div>
                 )}
 
+                {regFeeNeeded && (
+                  <>
+                    <div className="my-2 border-t" />
+                    <div className="flex justify-between">
+                      <div>
+                        <span className="text-muted-foreground">Annual Registration Fee</span>
+                        <p className="text-[10px] text-muted-foreground">
+                          One-time per family/year. Non-refundable.
+                        </p>
+                      </div>
+                      <span>{formatPriceDollars(regFeeAmount)}</span>
+                    </div>
+                  </>
+                )}
+
                 <div className="my-2 border-t" />
 
                 <div className="flex justify-between text-base font-bold">
-                  <span>Total</span>
-                  <span>{formatPrice(priceBreakdown.total * 100)}</span>
+                  <span>Total Due</span>
+                  <span>{formatPriceDollars(grandTotal)}</span>
                 </div>
               </div>
             </div>
@@ -434,21 +539,25 @@ export function EnrollmentDialog({
               </Button>
               <Button
                 onClick={handleEnroll}
-                disabled={submitting}
+                disabled={
+                  submitting ||
+                  (existingEnrollment?.payment_status === "paid") ||
+                  (existingEnrollment?.status === "waitlisted")
+                }
                 className="flex-1"
               >
-                {submitting && (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                )}
-                {isFull
-                  ? "Join Waitlist"
-                  : priceBreakdown.total <= 0
-                    ? "Enroll (Covered by Credits)"
-                    : "Proceed to Payment"}
+                {submitting && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {existingEnrollment?.payment_status === "pending"
+                  ? "Complete Payment"
+                  : isFull
+                    ? "Join Waitlist"
+                    : grandTotal <= 0
+                      ? "Enroll (Covered by Credits)"
+                      : "Proceed to Payment"}
               </Button>
             </div>
 
-            {!isFull && priceBreakdown.total > 0 && (
+            {!isFull && grandTotal > 0 && !existingEnrollment && (
               <p className="text-center text-xs text-muted-foreground">
                 You&apos;ll be redirected to Stripe for secure payment.
               </p>

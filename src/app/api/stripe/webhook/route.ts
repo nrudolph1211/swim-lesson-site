@@ -32,11 +32,12 @@ export async function POST(request: Request) {
     try {
       await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
     } catch (err) {
+      // Log but return 200 to prevent Stripe retries
       console.error("Error handling checkout.session.completed:", err);
-      return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
     }
   }
 
+  // Always return 200 to prevent Stripe retries on transient failures
   return NextResponse.json({ received: true });
 }
 
@@ -75,20 +76,50 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     console.error("Failed to update enrollment:", enrollmentError);
   }
 
-  // 3. Create notification for parent
+  // 3. Handle registration fee if included
+  if (metadata.registration_fee_included === "true" && userId) {
+    const year = new Date().getFullYear();
+    await supabase.from("registration_fees").upsert(
+      {
+        family_id: userId,
+        year,
+        amount: 30,
+        status: "paid",
+        paid_at: new Date().toISOString(),
+        stripe_payment_id: session.payment_intent as string,
+      },
+      { onConflict: "family_id,year" }
+    );
+  }
+
+  // 4. Apply credits if any were used
+  const creditsApplied = parseInt(metadata.credits_applied ?? "0", 10);
+  if (creditsApplied > 0 && userId) {
+    await supabase.from("family_credits").insert({
+      family_id: userId,
+      amount: -(creditsApplied / 100),
+      type: "used",
+      description: `Applied to enrollment ${enrollmentId}`,
+    });
+  }
+
+  // 5. Create notification for parent
   if (userId) {
+    const discountInfo = metadata.discount_breakdown
+      ? ` Discounts: ${metadata.discount_breakdown}`
+      : "";
     await supabase.from("notifications").insert({
       user_id: userId,
       type: "enrollment_confirmed",
       title: "Payment Confirmed",
-      message: `Your payment of $${((session.amount_total ?? 0) / 100).toFixed(2)} has been processed. ${metadata.swimmer_name ? `${metadata.swimmer_name}'s enrollment is confirmed!` : "Your enrollment is confirmed!"}`,
+      message: `Your payment of $${((session.amount_total ?? 0) / 100).toFixed(2)} has been processed. ${metadata.swimmer_name ? `${metadata.swimmer_name}'s enrollment is confirmed!` : "Your enrollment is confirmed!"}${discountInfo}`,
       link: "/dashboard",
       read: false,
       email_sent: false,
     });
   }
 
-  // 4. Check referral: if first paid enrollment for this family, progress referral
+  // 6. Process referral credit on first paid enrollment
   if (userId) {
     await processReferralCredit(supabase, userId);
   }
@@ -98,8 +129,6 @@ async function processReferralCredit(
   supabase: ReturnType<typeof createAdminClient>,
   userId: string
 ) {
-  // Count how many paid enrollments this family has
-  // First get all swimmer IDs for this family
   const { data: swimmers } = await supabase
     .from("swimmers")
     .select("id")
@@ -117,50 +146,47 @@ async function processReferralCredit(
   // Only process on the first paid enrollment
   if ((count ?? 0) > 1) return;
 
-  // Check if this user was referred (they are the referred_id)
   const { data: referral } = await supabase
     .from("referrals")
-    .select("id, referrer_id, status, credit_amount")
+    .select("id, referrer_id, status")
     .eq("referred_id", userId)
     .eq("status", "signed_up")
     .single();
 
   if (!referral) return;
 
-  // Get referral credit amount from settings, default to $10
+  // Get referral credit amount from settings ($25)
   const { data: setting } = await supabase
     .from("settings")
     .select("value")
     .eq("key", "referral_credit_amount")
     .single();
 
-  const creditAmount = setting?.value ?? 15;
+  const creditAmount = typeof setting?.value === "number" ? setting.value : 25;
 
-  // Progress referral: signed_up → enrolled → credited
   await supabase
     .from("referrals")
     .update({ status: "credited", credit_amount: creditAmount, updated_at: new Date().toISOString() })
     .eq("id", referral.id);
 
-  // Issue credit to referrer
-  await supabase.from("family_credits").insert({
-    family_id: referral.referrer_id,
-    amount: creditAmount,
-    type: "referral",
-    description: "Referral credit — friend completed first enrollment",
-    referral_id: referral.id,
-  });
+  // Issue $25 credit to BOTH families
+  await supabase.from("family_credits").insert([
+    {
+      family_id: referral.referrer_id,
+      amount: creditAmount,
+      type: "referral",
+      description: "Referral credit — friend completed first enrollment",
+      referral_id: referral.id,
+    },
+    {
+      family_id: userId,
+      amount: creditAmount,
+      type: "referral",
+      description: "Welcome credit — referred by a friend",
+      referral_id: referral.id,
+    },
+  ]);
 
-  // Issue credit to referred user
-  await supabase.from("family_credits").insert({
-    family_id: userId,
-    amount: creditAmount,
-    type: "referral",
-    description: "Welcome credit — referred by a friend",
-    referral_id: referral.id,
-  });
-
-  // Notify both parties
   await supabase.from("notifications").insert([
     {
       user_id: referral.referrer_id,

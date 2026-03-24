@@ -94,7 +94,9 @@ export function BookPageClient() {
       const start = new Date(session.priority_enrollment_start);
       const end = new Date(session.priority_enrollment_end);
       if (now < start || now > end) return false;
-      return false;
+      // Within priority window — block non-returning families
+      // TODO: check if user has a prior enrollment in a previous session to exempt returning families
+      return true;
     },
     []
   );
@@ -249,7 +251,7 @@ export function BookPageClient() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {classes.map((cls) => {
-                const basePrice = cls.base_price ?? cls.non_member_price ?? 0;
+                const basePrice = cls.base_price ?? 0;
                 const maxDiscount = user ? getMaxDiscountHint(cls) : 0;
                 return (
                   <ClassCard

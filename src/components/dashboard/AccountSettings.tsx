@@ -342,6 +342,7 @@ function NotificationsSection() {
 /* ── PASSWORD ── */
 function PasswordSection() {
   const supabase = createClient();
+  const { user } = useAuthContext();
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -350,6 +351,10 @@ function PasswordSection() {
   const strength = useMemo(() => getPasswordStrength(newPw), [newPw]);
 
   const handleChange = async () => {
+    if (!currentPw) {
+      toast.error("Please enter your current password.");
+      return;
+    }
     if (!newPw || newPw.length < 8) {
       toast.error("New password must be at least 8 characters.");
       return;
@@ -360,6 +365,19 @@ function PasswordSection() {
     }
 
     setSaving(true);
+
+    // Verify current password by re-authenticating
+    const { error: verifyErr } = await supabase.auth.signInWithPassword({
+      email: user?.email ?? "",
+      password: currentPw,
+    });
+
+    if (verifyErr) {
+      toast.error("Current password is incorrect.");
+      setSaving(false);
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password: newPw });
 
     if (error) {
@@ -422,7 +440,7 @@ function PasswordSection() {
           )}
         </div>
 
-        <Button onClick={handleChange} disabled={saving || !newPw || !confirmPw}>
+        <Button onClick={handleChange} disabled={saving || !currentPw || !newPw || !confirmPw}>
           {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
           Update Password
         </Button>

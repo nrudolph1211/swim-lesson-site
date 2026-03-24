@@ -44,6 +44,7 @@ import {
   XCircle,
   CreditCard,
   ArrowUp,
+  AlertTriangle,
   Loader2,
   ClipboardList,
 } from "lucide-react";
@@ -315,11 +316,11 @@ export function EnrollmentsTable() {
     // Get the class price to determine credit amount
     const { data: cls } = await supabase
       .from("classes")
-      .select("member_price")
+      .select("base_price")
       .eq("id", enrollment.class_id)
       .single();
 
-    const amount = cls?.member_price ?? 0;
+    const amount = cls?.base_price ?? 0;
 
     // Get swimmer's family_id
     const { data: swimmer } = await supabase
@@ -760,6 +761,21 @@ export function EnrollmentsTable() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            {(() => {
+              const paidCount = cancelIds.filter((cid) => enrollments.find((en) => en.id === cid)?.payment_status === "paid").length;
+              if (paidCount > 0) {
+                return (
+                  <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                    <p>
+                      {paidCount} of these enrollment{paidCount > 1 ? "s have" : " has"} been paid.
+                      Cancelling will NOT automatically issue a refund. You will need to update payment status separately.
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            })()}
             <div className="space-y-2">
               <Label htmlFor="cancel-reason">Reason (optional)</Label>
               <Textarea

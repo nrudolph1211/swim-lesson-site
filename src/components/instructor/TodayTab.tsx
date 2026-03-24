@@ -13,8 +13,8 @@ import {
 import { Loader2, AlertTriangle, ChevronDown, ChevronUp, Printer, ClipboardCheck, BarChart3, CalendarOff, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { formatTime } from "@/lib/date-utils";
-import { getLevelColor, getLevelTextColor, getLevelName, calculateAge } from "@/lib/swim-utils";
+import { formatTime, todayCentral } from "@/lib/date-utils";
+import { getLevelColor, getLevelTextColor, getLevelName, calculateAge, DAY_NAMES } from "@/lib/swim-utils";
 import { SkillTracker } from "./SkillTracker";
 import { InstructorSkeleton } from "@/components/ui/skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -57,10 +57,11 @@ export function TodayTab({ userId }: { userId: string }) {
   const [skillStudent, setSkillStudent] = useState<StudentInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const today = new Date();
-  const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const todayName = dayNames[today.getDay()];
-  const todayDate = today.toISOString().split("T")[0];
+  // Use Central Time for both day name and date to avoid UTC offset issues
+  // (e.g., at 8 PM CT, UTC would already be the next day)
+  const todayDate = todayCentral();
+  const todayDateObj = new Date(todayDate + "T12:00:00");
+  const todayName = DAY_NAMES[todayDateObj.getDay()];
 
   const fetchClasses = useCallback(async () => {
     setLoading(true);

@@ -75,6 +75,7 @@ export function EnrollmentDialog({
     status: string;
     payment_status: string;
   } | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
 
   const isFull = cls ? cls.confirmed_count >= cls.max_capacity : false;
   const basePrice = cls ? (cls.base_price ?? cls.non_member_price ?? 0) : 0;
@@ -83,9 +84,12 @@ export function EnrollmentDialog({
   useEffect(() => {
     if (!selectedSwimmer || !cls) return;
 
+    let cancelled = false;
+    setContextLoading(true);
+
     const checkContext = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || cancelled) return;
 
       // Check sibling enrollments in this session (server-side filtered)
       const { data: siblings } = await supabase
@@ -96,6 +100,7 @@ export function EnrollmentDialog({
         .eq("swimmers.family_id", user.id)
         .eq("classes.session_id", cls.session.id);
 
+      if (cancelled) return;
       setSiblingCount((siblings ?? []).length);
 
       // Check existing enrollment for duplicate prevention
@@ -107,6 +112,7 @@ export function EnrollmentDialog({
         .in("status", ["confirmed", "waitlisted"])
         .maybeSingle();
 
+      if (cancelled) return;
       setExistingEnrollment(existing ?? null);
 
       // Check registration fee
@@ -119,10 +125,14 @@ export function EnrollmentDialog({
         .eq("status", "paid")
         .maybeSingle();
 
+      if (cancelled) return;
       setRegFeeNeeded(!regFee);
+      setContextLoading(false);
     };
 
     checkContext();
+
+    return () => { cancelled = true; };
   }, [selectedSwimmer, cls, supabase]);
 
   // Calculate price using the pricing engine
@@ -322,6 +332,7 @@ export function EnrollmentDialog({
     setExistingEnrollment(null);
     setSiblingCount(0);
     setRegFeeNeeded(false);
+    setContextLoading(false);
   };
 
   if (!cls) return null;
@@ -552,19 +563,22 @@ export function EnrollmentDialog({
                 onClick={handleEnroll}
                 disabled={
                   submitting ||
+                  contextLoading ||
                   (existingEnrollment?.payment_status === "paid") ||
                   (existingEnrollment?.status === "waitlisted")
                 }
                 className="flex-1"
               >
-                {submitting && <Loader2 className="mr-2 size-4 animate-spin" />}
-                {existingEnrollment?.payment_status === "pending"
-                  ? "Complete Payment"
-                  : isFull
-                    ? "Join Waitlist"
-                    : grandTotal <= 0
-                      ? "Enroll (Covered by Credits)"
-                      : "Proceed to Payment"}
+                {(submitting || contextLoading) && <Loader2 className="mr-2 size-4 animate-spin" />}
+                {contextLoading
+                  ? "Loading..."
+                  : existingEnrollment?.payment_status === "pending"
+                    ? "Complete Payment"
+                    : isFull
+                      ? "Join Waitlist"
+                      : grandTotal <= 0
+                        ? "Enroll (Covered by Credits)"
+                        : "Proceed to Payment"}
               </Button>
             </div>
 

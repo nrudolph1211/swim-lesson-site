@@ -105,10 +105,27 @@ export function RegisterForm() {
     if (isMilitary) updates.is_military = true;
 
     if (Object.keys(updates).length > 0) {
-      await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", data.user.id);
+      // Retry profile update — the auth trigger may not have committed yet
+      let retries = 3;
+      let updateError = null;
+      while (retries > 0) {
+        const { error: profileErr } = await supabase
+          .from("profiles")
+          .update(updates)
+          .eq("id", data.user.id);
+        if (!profileErr) {
+          updateError = null;
+          break;
+        }
+        updateError = profileErr;
+        retries--;
+        if (retries > 0) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+      if (updateError) {
+        console.error("Profile update error after retries:", updateError);
+      }
     }
 
     // 3. Handle referral code

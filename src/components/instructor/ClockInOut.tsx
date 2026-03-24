@@ -76,9 +76,13 @@ export function ClockInOut({ userId }: { userId: string }) {
         (weekEntries ?? []).reduce((sum, e) => sum + (e.hours_worked ?? 0), 0)
       );
 
-      // Pay period hours (1st and 16th)
+      // Pay period hours (bi-weekly, aligned with PayrollManager)
+      // Reference Monday: 2026-01-05. Periods are every 14 days from there.
+      const biweeklyRef = new Date("2026-01-05T00:00:00");
+      const daysSinceRef = Math.floor((now.getTime() - biweeklyRef.getTime()) / 86400000);
+      const daysIntoPeriod = ((daysSinceRef % 14) + 14) % 14; // handle negative modulo
       const periodStart = new Date(now);
-      periodStart.setDate(now.getDate() >= 16 ? 16 : 1);
+      periodStart.setDate(now.getDate() - daysIntoPeriod);
       periodStart.setHours(0, 0, 0, 0);
 
       const { data: periodEntries } = await supabase

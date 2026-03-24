@@ -71,7 +71,10 @@ export function EnrollmentCard({ enrollment, onCancel, onRefresh }: EnrollmentCa
           level: cls?.level ?? 1,
           amount: Math.round((enrollment.amount_due ?? 0) * 100),
           registration_fee: 0,
-          credits_applied: 0,
+          credits_applied: Math.round((enrollment.credits_applied ?? 0) * 100),
+          discount_breakdown: enrollment.discount_breakdown
+            ? JSON.stringify(enrollment.discount_breakdown)
+            : "",
         }),
       });
 

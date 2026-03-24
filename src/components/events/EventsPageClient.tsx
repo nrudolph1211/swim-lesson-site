@@ -39,11 +39,14 @@ export function EventsPageClient() {
 
     let regCounts: Record<string, number> = {};
     if (eventIds.length > 0) {
+      // Only count "confirmed" registrations toward capacity.
+      // Waitlisted registrations should NOT inflate the count,
+      // otherwise the 51st person sees "Full" instead of "Join Waitlist".
       const { data: regs } = await supabase
         .from("event_registrations")
         .select("event_id")
         .in("event_id", eventIds)
-        .in("status", ["confirmed", "waitlisted"]);
+        .eq("status", "confirmed");
 
       for (const r of regs ?? []) {
         regCounts[r.event_id] = (regCounts[r.event_id] ?? 0) + 1;

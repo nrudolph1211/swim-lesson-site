@@ -105,11 +105,16 @@ export function useEnrollments() {
   }, [fetchEnrollments]);
 
   const cancelEnrollment = async (enrollmentId: string) => {
-    const { error } = await supabase
-      .from("enrollments")
-      .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
-      .eq("id", enrollmentId);
-    if (error) throw error;
+    // Use the API route so that waitlist auto-promotion and notifications are triggered
+    const res = await fetch("/api/enrollments/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enrollmentId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({ error: "Failed to cancel enrollment" }));
+      throw new Error(data.error ?? "Failed to cancel enrollment");
+    }
     await fetchEnrollments();
   };
 

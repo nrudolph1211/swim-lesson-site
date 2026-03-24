@@ -168,9 +168,11 @@ export function ReportsManager() {
     for (const e of enrollData ?? []) {
       const cls = Array.isArray(e.class) ? e.class[0] : e.class;
       const level = cls?.level;
-      if (level) levelCounts[level] = (levelCounts[level] ?? 0) + 1;
+      // Use level != null instead of truthiness check so level 0 is counted
+      if (level != null) levelCounts[level] = (levelCounts[level] ?? 0) + 1;
     }
-    setEnrollmentByLevel([1, 2, 3, 4, 5].map((l) => ({ level: l, count: levelCounts[l] ?? 0 })));
+    // Include level 0 (Parent & Child) through level 5
+    setEnrollmentByLevel([0, 1, 2, 3, 4, 5].map((l) => ({ level: l, count: levelCounts[l] ?? 0 })));
 
     // ── Attendance ──
     const { data: attData } = await supabase
@@ -349,7 +351,7 @@ export function ReportsManager() {
     for (const p of completed) {
       buckets[p.level!] = (buckets[p.level!] ?? 0) + p.amount;
     }
-    return [1, 2, 3, 4, 5].map((l) => ({ level: l, name: `L${l}`, amount: buckets[l] ?? 0, fill: getLevelColor(l) }));
+    return [0, 1, 2, 3, 4, 5].map((l) => ({ level: l, name: `L${l}`, amount: buckets[l] ?? 0, fill: getLevelColor(l) }));
   }, [payments]);
 
   // ── Revenue by method (donut) ──────────────────────────────

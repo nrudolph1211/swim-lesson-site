@@ -300,13 +300,28 @@ export function PaymentsManager() {
     setRefunding(true);
 
     try {
-      // Update payment status
-      const { error: payError } = await supabase
-        .from("payments")
-        .update({ status: "refunded" })
-        .eq("id", refundPayment.id);
-
-      if (payError) throw payError;
+      // For Stripe payments, process refund via API to hit Stripe automatically
+      if (refundPayment.payment_method === "stripe" && refundPayment.stripe_payment_intent_id) {
+        const res = await fetch("/api/stripe/refund", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            payment_id: refundPayment.id,
+            payment_intent_id: refundPayment.stripe_payment_intent_id,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({ error: "Stripe refund failed" }));
+          throw new Error(data.error ?? "Stripe refund failed");
+        }
+      } else {
+        // Non-Stripe payment: just update the database status
+        const { error: payError } = await supabase
+          .from("payments")
+          .update({ status: "refunded" })
+          .eq("id", refundPayment.id);
+        if (payError) throw payError;
+      }
 
       // Update enrollment if linked
       if (refundPayment.enrollment_id) {
@@ -319,8 +334,8 @@ export function PaymentsManager() {
       toast.success("Refund issued successfully.");
       setRefundPayment(null);
       fetchPayments();
-    } catch {
-      toast.error("Failed to issue refund.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to issue refund.");
     } finally {
       setRefunding(false);
     }
@@ -336,6 +351,8 @@ export function PaymentsManager() {
         return <Badge className="bg-red-100 text-red-800">Refunded</Badge>;
       case "failed":
         return <Badge className="bg-gray-100 text-gray-800">Failed</Badge>;
+      case "abandoned":
+        return <Badge className="bg-gray-100 text-gray-500">Abandoned</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -639,8 +656,11 @@ export function PaymentsManager() {
             <DialogTitle>Issue Refund?</DialogTitle>
             <DialogDescription>
               This will mark the payment as refunded and update the enrollment status.
-              {refundPayment?.payment_method === "stripe" &&
-                " You will still need to process the refund in the Stripe dashboard."}
+              {refundPayment?.payment_method === "stripe" && refundPayment?.stripe_payment_intent_id
+                ? " The Stripe refund will be processed automatically."
+                : refundPayment?.payment_method === "stripe"
+                  ? " No Stripe payment intent found — you may need to refund manually in the Stripe dashboard."
+                  : ""}
             </DialogDescription>
           </DialogHeader>
           {refundPayment && (

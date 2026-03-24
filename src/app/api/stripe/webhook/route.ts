@@ -44,15 +44,25 @@ export async function POST(request: Request) {
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const supabase = createAdminClient();
   const metadata = session.metadata ?? {};
-  const enrollmentId = metadata.enrollment_id;
   const userId = metadata.user_id;
+  const isBatch = metadata.batch === "true";
 
-  if (!enrollmentId) {
-    console.error("No enrollment_id in checkout session metadata");
+  // Determine enrollment IDs — single or batch
+  const enrollmentIds: string[] = [];
+  if (isBatch && metadata.enrollment_ids) {
+    enrollmentIds.push(...metadata.enrollment_ids.split(",").filter(Boolean));
+  } else if (metadata.enrollment_id) {
+    enrollmentIds.push(metadata.enrollment_id);
+  }
+
+  if (enrollmentIds.length === 0) {
+    console.error("No enrollment_id(s) in checkout session metadata");
     return;
   }
 
-  // 1. Update payment record
+  // 1. Update payment records by stripe_checkout_session_id
+  //    (works for both single and batch — batch creates one payment per enrollment
+  //     all sharing the same stripe_checkout_session_id)
   const { error: paymentError } = await supabase
     .from("payments")
     .update({
@@ -66,30 +76,25 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     console.error("Failed to update payment:", paymentError);
   }
 
-  // 2. Update enrollment payment status
-  const { error: enrollmentError } = await supabase
-    .from("enrollments")
-    .update({ payment_status: "paid" })
-    .eq("id", enrollmentId);
+  // 2. Update all enrollment(s) payment status
+  for (const enrollmentId of enrollmentIds) {
+    const { error: enrollmentError } = await supabase
+      .from("enrollments")
+      .update({ payment_status: "paid" })
+      .eq("id", enrollmentId);
 
-  if (enrollmentError) {
-    console.error("Failed to update enrollment:", enrollmentError);
+    if (enrollmentError) {
+      console.error(`Failed to update enrollment ${enrollmentId}:`, enrollmentError);
+    }
   }
 
-  // 3. Handle registration fee if included
+  // 3. Handle registration fee if included.
+  //    Use the amount from the Stripe line item (session.amount_total includes it),
+  //    but record the fee from metadata to avoid settings drift.
   if (metadata.registration_fee_included === "true" && userId) {
-    // Read the actual registration fee amount from settings (default $30)
-    const { data: regFeeSetting } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "annual_registration_fee")
-      .single();
-    const regFeeAmount =
-      typeof regFeeSetting?.value === "number"
-        ? regFeeSetting.value
-        : typeof regFeeSetting?.value === "string"
-          ? parseFloat(regFeeSetting.value) || 30
-          : 30;
+    // The registration fee amount (in cents) was recorded in metadata at checkout time
+    const regFeeCents = parseInt(metadata.registration_fee_amount ?? "0", 10);
+    const regFeeAmount = regFeeCents > 0 ? regFeeCents / 100 : 30; // fallback to $30
 
     const year = new Date().getFullYear();
     await supabase.from("registration_fees").upsert(
@@ -108,11 +113,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // 4. Apply credits if any were used
   const creditsApplied = parseInt(metadata.credits_applied ?? "0", 10);
   if (creditsApplied > 0 && userId) {
+    // credits_applied is stored in cents in metadata; convert to dollars
     await supabase.from("family_credits").insert({
       family_id: userId,
       amount: -(creditsApplied / 100),
       type: "used",
-      description: `Applied to enrollment ${enrollmentId}`,
+      description: `Applied to enrollment${enrollmentIds.length > 1 ? "s" : ""} ${enrollmentIds.join(", ")}`,
     });
   }
 

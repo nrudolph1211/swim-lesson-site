@@ -112,13 +112,24 @@ export async function updateInstructor(input: UpdateInstructorInput) {
     return { error: instructorError.message };
   }
 
-  // Update email if changed
-  const { data: existing } = await supabaseAdmin.auth.admin.getUserById(input.id);
-  if (existing?.user?.email !== input.email) {
-    await supabaseAdmin.auth.admin.updateUserById(input.id, {
-      email: input.email,
-      email_confirm: true,
-    });
+  // When deactivating an instructor, unassign them from all active classes
+  if (!input.is_active) {
+    await supabaseAdmin
+      .from("classes")
+      .update({ instructor_id: null })
+      .eq("instructor_id", input.id)
+      .eq("is_active", true);
+  }
+
+  // Update email if changed (skip if email is empty — client doesn't have access to auth email)
+  if (input.email) {
+    const { data: existing } = await supabaseAdmin.auth.admin.getUserById(input.id);
+    if (existing?.user?.email !== input.email) {
+      await supabaseAdmin.auth.admin.updateUserById(input.id, {
+        email: input.email,
+        email_confirm: true,
+      });
+    }
   }
 
   return { success: true };

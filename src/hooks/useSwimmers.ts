@@ -27,12 +27,14 @@ export interface WaiverRow {
   signed_at: string | null;
   expires_at: string | null;
   is_active: boolean;
+  waiver_version: string | null;
 }
 
 export function useSwimmers() {
   const { user } = useAuthContext();
   const [swimmers, setSwimmers] = useState<SwimmerRow[]>([]);
   const [waivers, setWaivers] = useState<WaiverRow[]>([]);
+  const [currentWaiverVersion, setCurrentWaiverVersion] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchSwimmers = useCallback(async () => {
@@ -40,7 +42,7 @@ export function useSwimmers() {
     setLoading(true);
 
     const supabase = createClient();
-    const [swimmerRes, waiverRes] = await Promise.all([
+    const [swimmerRes, waiverRes, settingsRes] = await Promise.all([
       supabase
         .from("swimmers")
         .select("*")
@@ -49,13 +51,24 @@ export function useSwimmers() {
         .order("created_at"),
       supabase
         .from("waivers")
-        .select("id, swimmer_id, signed_at, expires_at, is_active")
+        .select("id, swimmer_id, signed_at, expires_at, is_active, waiver_version")
         .eq("signed_by", user.id)
         .eq("is_active", true),
+      supabase
+        .from("settings")
+        .select("value")
+        .eq("key", "waiver_version")
+        .maybeSingle(),
     ]);
 
     if (swimmerRes.data) setSwimmers(swimmerRes.data);
     if (waiverRes.data) setWaivers(waiverRes.data);
+    if (settingsRes.data) {
+      const v = settingsRes.data.value;
+      setCurrentWaiverVersion(
+        typeof v === "string" ? v.replace(/"/g, "") : v != null ? String(v) : null
+      );
+    }
     setLoading(false);
   }, [user]);
 
@@ -92,6 +105,16 @@ export function useSwimmers() {
   const getWaiverStatus = (swimmerId: string): "active" | "expiring" | "required" => {
     const waiver = waivers.find((w) => w.swimmer_id === swimmerId);
     if (!waiver || !waiver.signed_at) return "required";
+
+    // If admin bumped the waiver version, old waivers are no longer valid
+    if (
+      currentWaiverVersion &&
+      waiver.waiver_version &&
+      waiver.waiver_version !== currentWaiverVersion
+    ) {
+      return "required";
+    }
+
     if (waiver.expires_at) {
       const expiresAt = new Date(waiver.expires_at);
       const thirtyDaysFromNow = new Date();

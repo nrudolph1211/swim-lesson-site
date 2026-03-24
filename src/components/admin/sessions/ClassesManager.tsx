@@ -278,12 +278,13 @@ export function ClassesManager({
       .from("enrollments")
       .select("id")
       .eq("class_id", id)
-      .in("status", ["confirmed", "waitlisted"])
-      .limit(1);
+      .in("status", ["confirmed", "waitlisted"]);
 
-    if (activeEnrollments && activeEnrollments.length > 0) {
+    const enrollmentCount = activeEnrollments?.length ?? 0;
+
+    if (enrollmentCount > 0) {
       const confirmed = window.confirm(
-        "This class has active enrollments. Cancelling it will NOT automatically update those enrollments. Are you sure you want to proceed?"
+        `This class has ${enrollmentCount} active enrollment(s). Cancelling will also cancel all associated enrollments. Are you sure you want to proceed?`
       );
       if (!confirmed) return;
     }
@@ -296,7 +297,27 @@ export function ClassesManager({
       toast.error("Failed to cancel class.");
       return;
     }
-    toast.success("Class cancelled.");
+
+    // Cancel all active enrollments for this class
+    if (enrollmentCount > 0) {
+      const enrollmentIds = activeEnrollments!.map((e) => e.id);
+      const { error: enrollErr } = await supabase
+        .from("enrollments")
+        .update({
+          status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: "Class cancelled by admin",
+        })
+        .in("id", enrollmentIds);
+      if (enrollErr) {
+        toast.error("Class cancelled but failed to update some enrollments.");
+      } else {
+        toast.success(`Class cancelled. ${enrollmentCount} enrollment(s) also cancelled.`);
+      }
+    } else {
+      toast.success("Class cancelled.");
+    }
+
     await fetchData();
   };
 

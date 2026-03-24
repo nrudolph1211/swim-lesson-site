@@ -111,39 +111,32 @@ export async function POST(request: Request) {
         swimmer_name,
         credits_applied: String(credits_applied ?? 0),
         registration_fee_included: regFee > 0 ? "true" : "false",
+        registration_fee_amount: String(regFee), // cents, for webhook to record exact charged amount
         discount_breakdown: discount_breakdown ?? "",
       },
       success_url: `${origin}/dashboard?payment=success`,
       cancel_url: `${origin}/book?payment=cancelled`,
     });
 
-    // Upsert payment record (update existing pending payment if re-paying)
-    const { data: existingPayment } = await supabase
+    // Mark any existing pending payments for this enrollment as abandoned,
+    // then create a fresh payment record for this checkout session.
+    // This prevents the webhook lookup failure when a user starts checkout
+    // multiple times — each session ID must have its own payment record.
+    await supabase
       .from("payments")
-      .select("id")
+      .update({ status: "abandoned" })
       .eq("enrollment_id", enrollment_id)
-      .eq("status", "pending")
-      .maybeSingle();
+      .eq("status", "pending");
 
-    if (existingPayment) {
-      await supabase
-        .from("payments")
-        .update({
-          stripe_checkout_session_id: session.id,
-          amount: (lessonAmount + regFee) / 100,
-        })
-        .eq("id", existingPayment.id);
-    } else {
-      await supabase.from("payments").insert({
-        enrollment_id,
-        family_id: user.id,
-        amount: (lessonAmount + regFee) / 100,
-        status: "pending",
-        payment_method: "stripe",
-        stripe_checkout_session_id: session.id,
-        description: `Swim Lessons — ${session_name} • Level ${level} • ${swimmer_name}`,
-      });
-    }
+    await supabase.from("payments").insert({
+      enrollment_id,
+      family_id: user.id,
+      amount: (lessonAmount + regFee) / 100,
+      status: "pending",
+      payment_method: "stripe",
+      stripe_checkout_session_id: session.id,
+      description: `Swim Lessons — ${session_name} • Level ${level} • ${swimmer_name}`,
+    });
 
     return NextResponse.json({ url: session.url });
   } catch (error) {

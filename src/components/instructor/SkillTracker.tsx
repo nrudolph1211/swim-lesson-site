@@ -138,15 +138,16 @@ export function SkillTracker({
     setRecords((prev) => {
       const next = new Map(prev);
       const existing = next.get(skillId) ?? { skill_id: skillId, status: "not_started", notes: "" };
-      next.set(skillId, { ...existing, status: newStatus });
+      const updated = { ...existing, status: newStatus };
+      next.set(skillId, updated);
 
-      // Debounce save — read notes from the updated map to avoid stale closure
+      // Debounce save — read notes from the UPDATED record to avoid stale data
       const timer = debounceTimers.current.get(skillId);
       if (timer) clearTimeout(timer);
       debounceTimers.current.set(
         skillId,
         setTimeout(() => {
-          saveRecord(skillId, newStatus, existing.notes ?? "");
+          saveRecord(skillId, newStatus, updated.notes ?? "");
         }, 500)
       );
 
@@ -158,15 +159,16 @@ export function SkillTracker({
     setRecords((prev) => {
       const next = new Map(prev);
       const existing = next.get(skillId) ?? { skill_id: skillId, status: "not_started" as SkillStatus, notes: "" };
-      next.set(skillId, { ...existing, notes });
+      const updated = { ...existing, notes };
+      next.set(skillId, updated);
 
-      // Debounce save — read status from the updated map to avoid stale closure
+      // Debounce save — read status from the UPDATED record to avoid stale data
       const timer = debounceTimers.current.get(`note-${skillId}`);
       if (timer) clearTimeout(timer);
       debounceTimers.current.set(
         `note-${skillId}`,
         setTimeout(() => {
-          saveRecord(skillId, existing.status ?? "not_started", notes);
+          saveRecord(skillId, updated.status ?? "not_started", notes);
         }, 500)
       );
 

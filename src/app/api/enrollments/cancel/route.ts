@@ -59,11 +59,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Already cancelled" }, { status: 400 });
   }
 
-  // Cancel the enrollment
+  // Cancel the enrollment and update payment status accordingly
+  const cancelledPaymentStatus =
+    enrollment.payment_status === "paid" ? "refund_pending" : "cancelled";
+
   const { error: updateErr } = await admin
     .from("enrollments")
     .update({
       status: "cancelled",
+      payment_status: cancelledPaymentStatus,
       cancelled_at: new Date().toISOString(),
     })
     .eq("id", enrollmentId);

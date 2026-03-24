@@ -151,9 +151,10 @@ export function ClassFormDialog({
       await onSave(form);
       onOpenChange(false);
     } catch (err) {
-      // Error toast is expected to be shown by the caller (onSave),
-      // but log in case it isn't handled
+      const message = err instanceof Error ? err.message : "Failed to save class.";
       console.error("Failed to save class:", err);
+      const { toast } = await import("sonner");
+      toast.error(message);
     } finally {
       setSaving(false);
     }

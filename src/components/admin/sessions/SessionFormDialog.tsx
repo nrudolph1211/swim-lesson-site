@@ -84,7 +84,10 @@ export function SessionFormDialog({
       await onSave(form);
       onOpenChange(false);
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save session.";
       console.error("Failed to save session:", err);
+      const { toast } = await import("sonner");
+      toast.error(message);
     } finally {
       setSaving(false);
     }

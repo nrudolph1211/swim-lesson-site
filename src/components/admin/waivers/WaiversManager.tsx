@@ -57,7 +57,23 @@ export function WaiversManager() {
       .select("id, swimmer_id, signed_by, signed_at, waiver_version, signature_data, expires_at, is_active, swimmer:swimmers(first_name, last_name, current_level), parent:profiles!signed_by(full_name, email)")
       .order("signed_at", { ascending: false });
 
-    setWaivers((data as unknown as WaiverRecord[]) ?? []);
+    setWaivers(
+      (data ?? []).map((w: Record<string, unknown>) => {
+        const swimmer = w.swimmer as unknown as
+          | { first_name: string; last_name: string; current_level: number }
+          | { first_name: string; last_name: string; current_level: number }[]
+          | null;
+        const parent = w.parent as unknown as
+          | { full_name: string; email: string }
+          | { full_name: string; email: string }[]
+          | null;
+        return {
+          ...w,
+          swimmer: Array.isArray(swimmer) ? swimmer[0] ?? null : swimmer,
+          parent: Array.isArray(parent) ? parent[0] ?? null : parent,
+        } as WaiverRecord;
+      })
+    );
     setLoading(false);
   }
 

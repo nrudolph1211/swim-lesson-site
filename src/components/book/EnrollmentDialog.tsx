@@ -87,23 +87,16 @@ export function EnrollmentDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Check sibling enrollments in this session
+      // Check sibling enrollments in this session (server-side filtered)
       const { data: siblings } = await supabase
         .from("enrollments")
         .select("id, swimmer:swimmers!inner(family_id), class:classes!inner(session_id)")
         .neq("swimmer_id", selectedSwimmer.id)
-        .eq("status", "confirmed");
+        .eq("status", "confirmed")
+        .eq("swimmers.family_id", user.id)
+        .eq("classes.session_id", cls.session.id);
 
-      const sessionSiblings = (siblings ?? []).filter(
-        (e: Record<string, unknown>) => {
-          const sw = e.swimmer as Record<string, unknown> | Record<string, unknown>[];
-          const cl = e.class as Record<string, unknown> | Record<string, unknown>[];
-          const swimmer = Array.isArray(sw) ? sw[0] : sw;
-          const classObj = Array.isArray(cl) ? cl[0] : cl;
-          return swimmer?.family_id === user.id && classObj?.session_id === cls.session.id;
-        }
-      );
-      setSiblingCount(sessionSiblings.length);
+      setSiblingCount((siblings ?? []).length);
 
       // Check existing enrollment for duplicate prevention
       const { data: existing } = await supabase
@@ -150,7 +143,7 @@ export function EnrollmentDialog({
       basePrice,
       isMember,
       isMilitary,
-      isEarlyBird: isEarlyBird(cls.session.start_date),
+      isEarlyBird: isEarlyBird(cls.session.start_date, cls.session.early_bird_deadline),
       siblingIndex: siblingCount,
       isMultiSession: false,
       availableCredits: familyCredits,
@@ -190,8 +183,20 @@ export function EnrollmentDialog({
           setSubmitting(false);
           return;
         }
-        // Pending payment — create new Stripe session for existing enrollment
+        // Pending payment — update pricing and create new Stripe session
         if (existingEnrollment.payment_status === "pending" && existingEnrollment.status === "confirmed") {
+          await supabase
+            .from("enrollments")
+            .update({
+              amount_due: priceResult.totalDue,
+              credits_applied: priceResult.creditsApplied,
+              discount_breakdown: {
+                discounts: priceResult.discountsApplied,
+                basePrice: priceResult.basePrice,
+                subtotal: priceResult.subtotalAfterDiscounts,
+              },
+            })
+            .eq("id", existingEnrollment.id);
           await goToStripe(existingEnrollment.id, user.id);
           return;
         }
@@ -236,14 +241,16 @@ export function EnrollmentDialog({
         return;
       }
 
-      // Credits cover full amount — skip Stripe
-      if (grandTotal <= 0 && priceResult.creditsApplied > 0) {
-        await supabase.from("family_credits").insert({
-          family_id: user.id,
-          amount: -priceResult.creditsApplied,
-          type: "used",
-          description: `Applied to enrollment ${enrollment.id}`,
-        });
+      // Full amount covered (by credits or zero-cost) — skip Stripe
+      if (grandTotal <= 0) {
+        if (priceResult.creditsApplied > 0) {
+          await supabase.from("family_credits").insert({
+            family_id: user.id,
+            amount: -priceResult.creditsApplied,
+            type: "used",
+            description: `Applied to enrollment ${enrollment.id}`,
+          });
+        }
         await supabase
           .from("enrollments")
           .update({ payment_status: "paid" })
@@ -259,7 +266,11 @@ export function EnrollmentDialog({
           }, { onConflict: "family_id,year" });
         }
 
-        toast.success(`${selectedSwimmer.first_name} is enrolled! Credits applied.`);
+        toast.success(
+          priceResult.creditsApplied > 0
+            ? `${selectedSwimmer.first_name} is enrolled! Credits applied.`
+            : `${selectedSwimmer.first_name} is enrolled!`
+        );
         onSuccess();
         onOpenChange(false);
         resetState();

@@ -161,7 +161,12 @@ export function WeeklySchedule({ enrollments }: WeeklyScheduleProps) {
     return map;
   }, [enrollments]);
 
-  const activeEnrollments = enrollments.filter((e) => e.status === "confirmed");
+  const activeEnrollments = useMemo(
+    () => enrollments.filter(
+      (e) => e.status === "confirmed" && e.class?.session?.status !== "completed"
+    ),
+    [enrollments]
+  );
 
   // Build schedule entries
   const entries = useMemo(() => {

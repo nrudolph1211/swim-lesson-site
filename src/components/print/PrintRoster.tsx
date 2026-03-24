@@ -40,7 +40,7 @@ export function PrintRoster({ classId }: { classId: string }) {
       .select(`
         level, start_time, end_time, day_of_week, max_capacity,
         session:sessions(name),
-        instructor:profiles!classes_instructor_id_fkey(full_name)
+        instructor:instructors(profile:profiles(full_name))
       `)
       .eq("id", classId)
       .single();
@@ -48,6 +48,8 @@ export function PrintRoster({ classId }: { classId: string }) {
     if (cls) {
       const session = Array.isArray(cls.session) ? cls.session[0] : cls.session;
       const instructor = Array.isArray(cls.instructor) ? cls.instructor[0] : cls.instructor;
+      const profile = instructor?.profile;
+      const prof = Array.isArray(profile) ? profile[0] : profile;
       setClassData({
         level: cls.level,
         start_time: cls.start_time,
@@ -55,20 +57,18 @@ export function PrintRoster({ classId }: { classId: string }) {
         day_of_week: cls.day_of_week,
         max_capacity: cls.max_capacity,
         session_name: session?.name ?? "Session",
-        instructor_name: instructor?.full_name ?? "TBD",
+        instructor_name: prof?.full_name ?? "TBD",
       });
     }
 
-    // Fetch enrolled students with parent info
+    // Fetch enrolled students with emergency contact info
     const { data: enrollments } = await supabase
       .from("enrollments")
       .select(`
         swimmer:swimmers(
           first_name, last_name, date_of_birth,
-          medical_notes, allergies,
-          parent:profiles!swimmers_parent_id_fkey(
-            emergency_contact_name, emergency_contact_phone
-          )
+          medical_notes,
+          emergency_contact_name, emergency_contact_phone
         )
       `)
       .eq("class_id", classId)
@@ -76,16 +76,14 @@ export function PrintRoster({ classId }: { classId: string }) {
 
     const rows: StudentRow[] = (enrollments ?? []).map((e) => {
       const sw = Array.isArray(e.swimmer) ? e.swimmer[0] : e.swimmer;
-      const parent = sw?.parent;
-      const p = Array.isArray(parent) ? parent[0] : parent;
       return {
         first_name: sw?.first_name ?? "",
         last_name: sw?.last_name ?? "",
         date_of_birth: sw?.date_of_birth ?? "",
         medical_notes: sw?.medical_notes ?? null,
-        allergies: sw?.allergies ?? null,
-        emergency_contact_name: p?.emergency_contact_name ?? null,
-        emergency_contact_phone: p?.emergency_contact_phone ?? null,
+        allergies: null,
+        emergency_contact_name: sw?.emergency_contact_name ?? null,
+        emergency_contact_phone: sw?.emergency_contact_phone ?? null,
       };
     });
 

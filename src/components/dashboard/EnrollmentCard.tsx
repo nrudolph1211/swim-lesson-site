@@ -167,7 +167,7 @@ export function EnrollmentCard({ enrollment, onCancel, onRefresh }: EnrollmentCa
           </div>
         )}
 
-        {enrollment.status === "confirmed" && (
+        {enrollment.status === "confirmed" && cls?.session?.status !== "completed" && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <AddToCalendar enrollment={enrollment} />
             {enrollment.makeup_credits > 0 && (

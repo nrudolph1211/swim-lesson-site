@@ -3,7 +3,16 @@ export type UserRole = "parent" | "instructor" | "admin";
 export type EnrollmentStatus = "active" | "waitlisted" | "cancelled" | "completed";
 export type PaymentStatus = "pending" | "paid" | "refunded" | "failed";
 export type CancellationReason = "parent_request" | "schedule_conflict" | "medical" | "weather" | "instructor_unavailable" | "other";
-export type NotificationType = "info" | "success" | "warning" | "error";
+export type NotificationType =
+  | "general"
+  | "weather_cancellation"
+  | "enrollment_confirmed"
+  | "enrollment_cancelled"
+  | "waitlist_promoted"
+  | "waiver_expiring"
+  | "session_opening"
+  | "makeup_credit"
+  | "level_promotion";
 export type DiscountType = "percentage" | "fixed";
 export type CampaignChannel = "email" | "sms" | "both";
 export type CampaignStatus = "draft" | "scheduled" | "sent" | "failed";
@@ -31,15 +40,17 @@ export interface Profile {
 
 export interface Swimmer {
   id: string;
-  parent_id: string;
+  family_id: string;
   first_name: string;
   last_name: string;
   date_of_birth: string;
   current_level: number;
   medical_notes: string | null;
-  allergies: string | null;
-  special_needs: string | null;
-  photo_url: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  emergency_contact_relationship: string | null;
+  swim_experience: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -61,9 +72,13 @@ export interface SwimSession {
   name: string;
   start_date: string;
   end_date: string;
-  registration_open: string;
-  registration_close: string;
-  is_active: boolean;
+  status: string;
+  season_type: string;
+  early_bird_discount_percent: number;
+  early_bird_deadline: string | null;
+  priority_enrollment_start: string | null;
+  priority_enrollment_end: string | null;
+  re_enrollment_priority_enabled: boolean;
   notes: string | null;
   created_at: string;
 }
@@ -73,14 +88,17 @@ export interface SwimClass {
   session_id: string;
   level: number;
   instructor_id: string | null;
-  day_of_week: number;
+  day_of_week: string[];
   start_time: string;
   end_time: string;
   max_capacity: number;
-  current_enrollment: number;
-  price_cents: number;
-  location: string;
-  is_private: boolean;
+  base_price: number | null;
+  program_type: string | null;
+  member_price: number | null;
+  non_member_price: number | null;
+  military_price: number | null;
+  class_type: string;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -90,23 +108,24 @@ export interface Enrollment {
   class_id: string;
   status: EnrollmentStatus;
   payment_status: PaymentStatus;
-  stripe_payment_intent_id: string | null;
-  amount_paid_cents: number;
-  discount_applied_cents: number;
-  promotion_id: string | null;
+  makeup_credits: number;
+  amount_due: number | null;
+  credits_applied: number | null;
+  discount_breakdown: Record<string, unknown> | null;
   enrolled_at: string;
   cancelled_at: string | null;
-  waitlist_position: number | null;
+  notes: string | null;
 }
 
 export interface Waiver {
   id: string;
   swimmer_id: string;
-  parent_id: string;
-  signed: boolean;
-  signed_at: string | null;
-  ip_address: string | null;
+  signed_by: string;
+  signature_data: string;
   waiver_version: string;
+  signed_at: string | null;
+  expires_at: string | null;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -156,11 +175,14 @@ export interface PromotionRequest {
 export interface Payment {
   id: string;
   enrollment_id: string;
-  parent_id: string;
-  amount_cents: number;
-  stripe_payment_intent_id: string;
+  family_id: string;
+  amount: number;
   status: PaymentStatus;
-  refund_amount_cents: number;
+  payment_method: string;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  description: string | null;
+  refund_amount: number;
   refund_reason: string | null;
   created_at: string;
 }
@@ -168,23 +190,32 @@ export interface Payment {
 export interface Notification {
   id: string;
   user_id: string;
-  title: string;
-  message: string;
+  title: string | null;
+  message: string | null;
   type: NotificationType;
   read: boolean;
   link: string | null;
+  email_sent: boolean;
   created_at: string;
 }
 
 export interface Event {
   id: string;
-  title: string;
+  name: string;
   description: string | null;
-  event_date: string;
-  end_date: string | null;
-  location: string;
-  max_participants: number | null;
-  is_public: boolean;
+  event_type: string;
+  start_date: string;
+  end_date: string;
+  daily_start_time: string | null;
+  daily_end_time: string | null;
+  level_min: number;
+  level_max: number;
+  max_capacity: number;
+  member_price: number;
+  non_member_price: number;
+  military_price: number;
+  instructor_id: string | null;
+  status: string;
   image_url: string | null;
   created_at: string;
 }
@@ -192,8 +223,9 @@ export interface Event {
 export interface EventRegistration {
   id: string;
   event_id: string;
-  parent_id: string;
+  family_id: string;
   swimmer_ids: string[];
+  status: string;
   registered_at: string;
 }
 
@@ -215,21 +247,20 @@ export interface Promotion {
 export interface Referral {
   id: string;
   referrer_id: string;
-  referred_id: string;
+  referred_id: string | null;
   referral_code: string;
-  credit_amount_cents: number;
-  credited: boolean;
-  credited_at: string | null;
+  status: "pending" | "signed_up" | "credited";
+  credit_amount: number;
   created_at: string;
 }
 
 export interface FamilyCredit {
   id: string;
-  parent_id: string;
-  amount_cents: number;
-  reason: string;
-  source: "referral" | "refund" | "promo" | "admin";
-  applied_to_enrollment_id: string | null;
+  family_id: string;
+  amount: number;
+  type: "referral" | "refund" | "promo" | "admin" | "credit" | "debit";
+  description: string | null;
+  enrollment_id: string | null;
   created_at: string;
 }
 
@@ -237,12 +268,13 @@ export interface Survey {
   id: string;
   swimmer_id: string;
   session_id: string;
-  parent_id: string;
-  rating: number;
+  family_id: string;
+  overall_rating: number;
   instructor_rating: number | null;
   facility_rating: number | null;
-  feedback: string | null;
+  feedback_text: string | null;
   would_recommend: boolean | null;
+  display_name: string | null;
   submitted_at: string;
 }
 

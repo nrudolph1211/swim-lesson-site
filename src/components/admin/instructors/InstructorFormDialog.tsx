@@ -132,6 +132,8 @@ export function InstructorFormDialog({
     try {
       await onSave(form);
       onOpenChange(false);
+    } catch (err) {
+      console.error("Failed to save instructor:", err);
     } finally {
       setSaving(false);
     }

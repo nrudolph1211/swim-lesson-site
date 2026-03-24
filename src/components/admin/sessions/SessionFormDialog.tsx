@@ -81,6 +81,8 @@ export function SessionFormDialog({
     try {
       await onSave(form);
       onOpenChange(false);
+    } catch (err) {
+      console.error("Failed to save session:", err);
     } finally {
       setSaving(false);
     }

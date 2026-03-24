@@ -140,15 +140,24 @@ export function AdminSettings() {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const saveKeys = async (keys: string[]) => {
+  const saveKeys = async (keys: string[], overrides?: Record<string, unknown>) => {
     setSaving(true);
+    let hasError = false;
     for (const key of keys) {
-      const val = settings[key] ?? DEFAULTS[key];
-      await supabase
+      const val = overrides?.[key] ?? settings[key] ?? DEFAULTS[key];
+      const { error: upsertError } = await supabase
         .from("settings")
         .upsert({ key, value: val, updated_at: new Date().toISOString() }, { onConflict: "key" });
+      if (upsertError) {
+        hasError = true;
+        console.error(`Failed to save setting "${key}":`, upsertError.message);
+      }
     }
-    toast.success("Settings saved.");
+    if (hasError) {
+      toast.error("Some settings failed to save. Check the console for details.");
+    } else {
+      toast.success("Settings saved.");
+    }
     setSaving(false);
   };
 
@@ -448,7 +457,7 @@ function WaiverTab({
   settings: Record<string, unknown>;
   set: (k: string, v: unknown) => void;
   getStr: (k: string) => string;
-  saveKeys: (keys: string[]) => Promise<void>;
+  saveKeys: (keys: string[], overrides?: Record<string, unknown>) => Promise<void>;
   saving: boolean;
 }) {
   const currentVersion = getStr("waiver_version") || "1.0";
@@ -460,8 +469,9 @@ function WaiverTab({
     const newVersion = `${parts[0]}.${minor}`;
     set("waiver_version", newVersion);
 
-    // Save both
-    await saveKeys(["waiver_content", "waiver_version"]);
+    // Pass the new version as an override so it's saved immediately
+    // (state update from set() is async and won't be reflected in settings yet)
+    await saveKeys(["waiver_content", "waiver_version"], { waiver_version: newVersion });
   };
 
   return (

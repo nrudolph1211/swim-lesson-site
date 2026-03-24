@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -744,8 +744,8 @@ function PaymentsSection() {
               </TableRow>
             ) : (
               payments.map((p) => (
-                <>
-                  <TableRow key={p.id}>
+                <React.Fragment key={p.id}>
+                  <TableRow>
                     <TableCell className="text-xs">
                       {format(parseISO(p.created_at), "MMM d, yyyy")}
                     </TableCell>
@@ -781,7 +781,7 @@ function PaymentsSection() {
                     </TableCell>
                   </TableRow>
                   {expanded === p.id && p.stripe_checkout_session_id && (
-                    <TableRow key={`${p.id}-detail`}>
+                    <TableRow>
                       <TableCell colSpan={6} className="bg-muted/50 text-xs">
                         <div className="flex items-center gap-2 py-1">
                           <span className="text-muted-foreground">
@@ -796,7 +796,7 @@ function PaymentsSection() {
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </React.Fragment>
               ))
             )}
           </TableBody>

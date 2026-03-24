@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InlineError } from "@/components/ui/inline-error";
 import { createClient } from "@/lib/supabase/client";
+import { useAuthContext } from "@/components/auth/AuthProvider";
 import { getLevelColor, getLevelTextColor, getLevelName } from "@/lib/swim-utils";
 import { formatTime } from "@/lib/date-utils";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ export function MakeUpBookingDialog({
   onBooked,
 }: MakeUpBookingDialogProps) {
   const supabase = createClient();
+  const { user } = useAuthContext();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -198,7 +200,7 @@ export function MakeUpBookingDialog({
           enrollment_id: enrollmentId,
           class_date: selectedDate,
           status: "present",
-          recorded_by: swimmerId,
+          recorded_by: user?.id ?? swimmerId,
           recorded_at: new Date().toISOString(),
         });
 

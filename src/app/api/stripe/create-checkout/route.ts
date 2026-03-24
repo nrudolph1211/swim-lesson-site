@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       swimmer_name,
       session_name,
       level,
-      amount, // in cents (lesson fee after discounts, before credits)
+      amount, // in cents (lesson fee after discounts and credits)
       registration_fee, // in cents (0 if already paid this year)
       credits_applied, // in cents
       discount_breakdown, // human-readable string

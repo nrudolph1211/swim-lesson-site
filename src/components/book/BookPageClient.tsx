@@ -107,7 +107,7 @@ export function BookPageClient() {
       const maxStack = discountSettings.max_discount_stack;
 
       // Early bird is usually the biggest
-      if (isEarlyBird(cls.session.start_date)) {
+      if (isEarlyBird(cls.session.start_date, cls.session.early_bird_deadline)) {
         totalPct += discountSettings.early_bird_discount_pct;
         count++;
       }

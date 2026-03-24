@@ -113,9 +113,15 @@ export function useEnrollments() {
     await fetchEnrollments();
   };
 
-  const active = enrollments.filter((e) => e.status === "confirmed");
-  const waitlisted = enrollments.filter((e) => e.status === "waitlisted");
-  const past = enrollments.filter((e) => e.status === "cancelled" || e.class?.session?.status === "completed");
+  const active = enrollments.filter(
+    (e) => e.status === "confirmed" && e.class?.session?.status !== "completed"
+  );
+  const waitlisted = enrollments.filter(
+    (e) => e.status === "waitlisted" && e.class?.session?.status !== "completed"
+  );
+  const past = enrollments.filter(
+    (e) => e.status === "cancelled" || e.class?.session?.status === "completed"
+  );
 
   return {
     enrollments,

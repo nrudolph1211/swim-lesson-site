@@ -139,19 +139,19 @@ export function SkillTracker({
       const next = new Map(prev);
       const existing = next.get(skillId) ?? { skill_id: skillId, status: "not_started", notes: "" };
       next.set(skillId, { ...existing, status: newStatus });
+
+      // Debounce save — read notes from the updated map to avoid stale closure
+      const timer = debounceTimers.current.get(skillId);
+      if (timer) clearTimeout(timer);
+      debounceTimers.current.set(
+        skillId,
+        setTimeout(() => {
+          saveRecord(skillId, newStatus, existing.notes ?? "");
+        }, 500)
+      );
+
       return next;
     });
-
-    // Debounce save
-    const timer = debounceTimers.current.get(skillId);
-    if (timer) clearTimeout(timer);
-    debounceTimers.current.set(
-      skillId,
-      setTimeout(() => {
-        const record = records.get(skillId);
-        saveRecord(skillId, newStatus, record?.notes ?? "");
-      }, 500)
-    );
   };
 
   const handleNoteChange = (skillId: string, notes: string) => {
@@ -159,18 +159,19 @@ export function SkillTracker({
       const next = new Map(prev);
       const existing = next.get(skillId) ?? { skill_id: skillId, status: "not_started" as SkillStatus, notes: "" };
       next.set(skillId, { ...existing, notes });
+
+      // Debounce save — read status from the updated map to avoid stale closure
+      const timer = debounceTimers.current.get(`note-${skillId}`);
+      if (timer) clearTimeout(timer);
+      debounceTimers.current.set(
+        `note-${skillId}`,
+        setTimeout(() => {
+          saveRecord(skillId, existing.status ?? "not_started", notes);
+        }, 500)
+      );
+
       return next;
     });
-
-    const timer = debounceTimers.current.get(`note-${skillId}`);
-    if (timer) clearTimeout(timer);
-    debounceTimers.current.set(
-      `note-${skillId}`,
-      setTimeout(() => {
-        const record = records.get(skillId);
-        saveRecord(skillId, record?.status ?? "not_started", notes);
-      }, 500)
-    );
   };
 
   const handleRecommendPromotion = async () => {

@@ -51,33 +51,41 @@ export async function POST(request: Request) {
     const origin = request.headers.get("origin") ?? "http://localhost:3000";
     const stripe = getStripe();
 
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map(
-      (item) => ({
+    // Distribute credit proportionally across items so each line item stays non-negative
+    let remainingCredit = credits_applied ?? 0;
+    const adjustedItems = items.map((item, idx) => {
+      let creditForItem = 0;
+      if (remainingCredit > 0 && item.amount > 0) {
+        if (idx === items.length - 1) {
+          // Last item gets remaining credit to avoid rounding drift
+          creditForItem = Math.min(remainingCredit, item.amount);
+        } else {
+          creditForItem = Math.min(
+            Math.round((item.amount / totalAmount) * (credits_applied ?? 0)),
+            item.amount
+          );
+        }
+        remainingCredit -= creditForItem;
+      }
+      return { ...item, adjustedAmount: item.amount - creditForItem, creditForItem };
+    });
+
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = adjustedItems
+      .filter((item) => item.adjustedAmount > 0)
+      .map((item) => ({
         price_data: {
           currency: "usd",
           product_data: {
             name: `Swim Lessons — ${item.session_name}`,
-            description: `Level ${item.level} • ${item.swimmer_name}`,
+            description: `Level ${item.level} • ${item.swimmer_name}${item.creditForItem > 0 ? ` (incl. $${(item.creditForItem / 100).toFixed(2)} credit)` : ""}`,
           },
-          unit_amount: item.amount,
+          unit_amount: item.adjustedAmount,
         },
         quantity: 1,
-      })
-    );
+      }));
 
-    // If credits applied, add a discount line
-    if (credits_applied > 0) {
-      lineItems.push({
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: "Family Credit Applied",
-            description: "Credit balance applied to this order",
-          },
-          unit_amount: -credits_applied,
-        },
-        quantity: 1,
-      });
+    if (lineItems.length === 0) {
+      return NextResponse.json({ error: "Use direct enrollment for zero-cost" }, { status: 400 });
     }
 
     const enrollmentIds = items.map((i) => i.enrollment_id);

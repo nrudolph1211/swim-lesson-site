@@ -78,12 +78,25 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   // 3. Handle registration fee if included
   if (metadata.registration_fee_included === "true" && userId) {
+    // Read the actual registration fee amount from settings (default $30)
+    const { data: regFeeSetting } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", "annual_registration_fee")
+      .single();
+    const regFeeAmount =
+      typeof regFeeSetting?.value === "number"
+        ? regFeeSetting.value
+        : typeof regFeeSetting?.value === "string"
+          ? parseFloat(regFeeSetting.value) || 30
+          : 30;
+
     const year = new Date().getFullYear();
     await supabase.from("registration_fees").upsert(
       {
         family_id: userId,
         year,
-        amount: 30,
+        amount: regFeeAmount,
         status: "paid",
         paid_at: new Date().toISOString(),
         stripe_payment_id: session.payment_intent as string,

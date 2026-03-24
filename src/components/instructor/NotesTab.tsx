@@ -191,35 +191,40 @@ export function NotesTab({ userId }: { userId: string }) {
   );
 
   const handleNoteChange = (swimmerId: string, notes: string) => {
-    setStudents((prev) =>
-      prev.map((s) =>
+    setStudents((prev) => {
+      const updated = prev.map((s) =>
         s.swimmer_id === swimmerId ? { ...s, notes, saved: false } : s
-      )
-    );
+      );
 
-    // Debounce save
-    const existing = debounceTimers.current.get(swimmerId);
-    if (existing) clearTimeout(existing);
+      // Debounce save — read recommendation from the updated state to avoid stale closure
+      const existing = debounceTimers.current.get(swimmerId);
+      if (existing) clearTimeout(existing);
 
-    const student = students.find((s) => s.swimmer_id === swimmerId);
-    debounceTimers.current.set(
-      swimmerId,
-      setTimeout(() => {
-        saveNote(swimmerId, notes, student?.recommendation ?? "");
-      }, 1000)
-    );
+      const student = updated.find((s) => s.swimmer_id === swimmerId);
+      debounceTimers.current.set(
+        swimmerId,
+        setTimeout(() => {
+          saveNote(swimmerId, notes, student?.recommendation ?? "");
+        }, 1000)
+      );
+
+      return updated;
+    });
   };
 
   const handleRecommendationChange = (swimmerId: string, recommendation: string) => {
-    setStudents((prev) =>
-      prev.map((s) =>
+    setStudents((prev) => {
+      const updated = prev.map((s) =>
         s.swimmer_id === swimmerId ? { ...s, recommendation, saved: false } : s
-      )
-    );
+      );
 
-    const student = students.find((s) => s.swimmer_id === swimmerId);
-    // Save immediately for dropdown changes
-    saveNote(swimmerId, student?.notes ?? "", recommendation);
+      // Read notes from the updated state to avoid stale closure
+      const student = updated.find((s) => s.swimmer_id === swimmerId);
+      // Save immediately for dropdown changes
+      saveNote(swimmerId, student?.notes ?? "", recommendation);
+
+      return updated;
+    });
   };
 
   if (loading) {

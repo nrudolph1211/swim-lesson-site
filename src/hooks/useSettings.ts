@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export function useSettings(keys: string[]) {
@@ -17,7 +17,15 @@ export function useSettings(keys: string[]) {
     if (data) {
       const map: Record<string, string> = {};
       for (const row of data) {
-        map[row.key] = row.value;
+        // Supabase jsonb columns can return numbers, booleans, or objects —
+        // coerce to string safely for our settings map
+        const v = row.value;
+        map[row.key] =
+          v == null
+            ? ""
+            : typeof v === "object"
+              ? JSON.stringify(v)
+              : String(v);
       }
       setSettings(map);
     }
@@ -29,26 +37,26 @@ export function useSettings(keys: string[]) {
     fetchSettings();
   }, [fetchSettings]);
 
-  const getNumber = (key: string, fallback = 0): number => {
+  const getNumber = useCallback((key: string, fallback = 0): number => {
     const val = settings[key];
     if (val == null) return fallback;
     const str = typeof val === "string" ? val : String(val);
     const parsed = parseFloat(str.replace(/"/g, ""));
     return isNaN(parsed) ? fallback : parsed;
-  };
+  }, [settings]);
 
-  const getString = (key: string, fallback = ""): string => {
+  const getString = useCallback((key: string, fallback = ""): string => {
     const val = settings[key];
     if (val == null) return fallback;
     const str = typeof val === "string" ? val : String(val);
     return str.replace(/"/g, "");
-  };
+  }, [settings]);
 
-  const getBoolean = (key: string, fallback = false): boolean => {
+  const getBoolean = useCallback((key: string, fallback = false): boolean => {
     const val = settings[key];
     if (!val) return fallback;
     return val === "true";
-  };
+  }, [settings]);
 
   return { settings, loading, getNumber, getString, getBoolean };
 }

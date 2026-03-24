@@ -150,6 +150,10 @@ export function ClassFormDialog({
     try {
       await onSave(form);
       onOpenChange(false);
+    } catch (err) {
+      // Error toast is expected to be shown by the caller (onSave),
+      // but log in case it isn't handled
+      console.error("Failed to save class:", err);
     } finally {
       setSaving(false);
     }
@@ -245,7 +249,17 @@ export function ClassFormDialog({
                 id="c-start"
                 type="time"
                 value={form.start_time}
-                onChange={(e) => set("start_time", e.target.value)}
+                onChange={(e) => {
+                  const newStart = e.target.value;
+                  set("start_time", newStart);
+                  // Auto-recalculate end_time if a program type is selected
+                  if (form.program_type) {
+                    const defaults = PROGRAM_DEFAULTS[form.program_type as ProgramType];
+                    if (defaults) {
+                      set("end_time", deriveEndTime(newStart, defaults.durationMinutes));
+                    }
+                  }
+                }}
               />
             </div>
             <div className="space-y-2">

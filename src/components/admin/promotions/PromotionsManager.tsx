@@ -119,14 +119,14 @@ export function PromotionsManager() {
             .eq("level", r.from_level),
           supabase
             .from("skill_records")
-            .select("id")
+            .select("skill_id")
             .eq("swimmer_id", r.swimmer_id)
             .eq("status", "mastered"),
         ]);
 
         const skillIds = new Set((skillsRes.data ?? []).map((sk) => sk.id));
         const masteredInLevel = (recordsRes.data ?? []).filter((rec) =>
-          skillIds.has(rec.id)
+          skillIds.has(rec.skill_id)
         ).length;
 
         enriched.push({

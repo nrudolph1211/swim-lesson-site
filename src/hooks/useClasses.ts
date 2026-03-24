@@ -94,7 +94,8 @@ export function useClasses() {
       setLoading(false);
     }
     return data;
-  }, [supabase, filters.sessionId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
 
   const fetchClasses = useCallback(async () => {
     if (!filters.sessionId) {

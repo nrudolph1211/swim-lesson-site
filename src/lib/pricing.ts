@@ -371,9 +371,20 @@ export function getSiblingIndex(
 
 // ── Early Bird Check ───────────────────────────────────────
 
-export function isEarlyBird(sessionStartDate: string): boolean {
+export function isEarlyBird(
+  sessionStartDate: string,
+  earlyBirdDeadline?: string | null
+): boolean {
+  const now = new Date();
+
+  // If the session has an explicit early-bird deadline, use it
+  if (earlyBirdDeadline) {
+    return now < new Date(earlyBirdDeadline);
+  }
+
+  // Fallback: early bird if registering more than 6 weeks before session start
   const start = new Date(sessionStartDate);
   const sixWeeksBefore = new Date(start);
   sixWeeksBefore.setDate(sixWeeksBefore.getDate() - 42);
-  return new Date() < sixWeeksBefore;
+  return now < sixWeeksBefore;
 }

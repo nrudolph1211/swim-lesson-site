@@ -33,7 +33,9 @@ function getPasswordStrength(password: string): {
 export function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const refCode = searchParams.get("ref") || "";
+  const refFromUrl = searchParams.get("ref") || "";
+  const [referralCode, setReferralCode] = useState(refFromUrl);
+  const refCode = referralCode.trim();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -162,7 +164,7 @@ export function RegisterForm() {
 
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {refCode && (
+            {refFromUrl && (
               <div className="flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
                 <Gift className="size-4 shrink-0" />
                 <span>
@@ -289,8 +291,21 @@ export function RegisterForm() {
               </Label>
             </div>
 
-            {/* Hidden referral code */}
-            {refCode && <input type="hidden" name="ref" value={refCode} />}
+            {/* Referral Code */}
+            <div className="space-y-2">
+              <Label htmlFor="referralCode">Referral Code</Label>
+              <Input
+                id="referralCode"
+                type="text"
+                placeholder="HAC-XXXXXXXX"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                className="font-mono tracking-wider"
+              />
+              <p className="text-xs text-muted-foreground">
+                Have a referral code? Enter it here for $25 off your first enrollment.
+              </p>
+            </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 size-4 animate-spin" />}

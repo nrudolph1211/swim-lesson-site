@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -70,6 +71,14 @@ export function EnrollmentDialog({
   const [submitting, setSubmitting] = useState(false);
   const [siblingCount, setSiblingCount] = useState(0);
   const [regFeeNeeded, setRegFeeNeeded] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoValidating, setPromoValidating] = useState(false);
+  const [promoDiscount, setPromoDiscount] = useState<{
+    code: string;
+    discount_type: "percentage" | "flat";
+    discount_value: number;
+  } | null>(null);
+  const [promoError, setPromoError] = useState("");
   const [existingEnrollment, setExistingEnrollment] = useState<{
     id: string;
     status: string;
@@ -79,6 +88,51 @@ export function EnrollmentDialog({
 
   const isFull = cls ? cls.confirmed_count >= cls.max_capacity : false;
   const basePrice = cls ? (cls.base_price ?? cls.non_member_price ?? 0) : 0;
+
+  const validatePromo = async () => {
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
+    setPromoValidating(true);
+    setPromoError("");
+    setPromoDiscount(null);
+
+    const { data, error } = await supabase
+      .from("promo_codes")
+      .select("code, discount_type, discount_value, max_uses, current_uses, starts_at, expires_at")
+      .eq("code", code)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error || !data) {
+      setPromoError("Invalid promo code.");
+      setPromoValidating(false);
+      return;
+    }
+
+    const now = new Date();
+    if (data.starts_at && new Date(data.starts_at) > now) {
+      setPromoError("This promo code is not yet active.");
+      setPromoValidating(false);
+      return;
+    }
+    if (data.expires_at && new Date(data.expires_at) < now) {
+      setPromoError("This promo code has expired.");
+      setPromoValidating(false);
+      return;
+    }
+    if (data.max_uses && data.current_uses >= data.max_uses) {
+      setPromoError("This promo code has reached its usage limit.");
+      setPromoValidating(false);
+      return;
+    }
+
+    setPromoDiscount({
+      code: data.code,
+      discount_type: data.discount_type as "percentage" | "flat",
+      discount_value: Number(data.discount_value),
+    });
+    setPromoValidating(false);
+  };
 
   // Check sibling count + registration fee when swimmer is selected
   useEffect(() => {
@@ -163,7 +217,15 @@ export function EnrollmentDialog({
   }, [cls, basePrice, isMember, isMilitary, siblingCount, familyCredits, applyCredits, discountSettings]);
 
   const regFeeAmount = regFeeNeeded ? discountSettings.annual_registration_fee : 0;
-  const grandTotal = priceResult.totalDue + regFeeAmount;
+
+  // Calculate promo discount on the subtotal after other discounts
+  const promoAmount = promoDiscount
+    ? promoDiscount.discount_type === "percentage"
+      ? Math.min(priceResult.totalDue, priceResult.totalDue * (promoDiscount.discount_value / 100))
+      : Math.min(priceResult.totalDue, promoDiscount.discount_value)
+    : 0;
+
+  const grandTotal = Math.max(0, priceResult.totalDue - promoAmount) + regFeeAmount;
 
   const handleSelectSwimmer = (swimmer: SwimmerRow) => {
     const waiverStatus = getWaiverStatus(swimmer.id);
@@ -251,6 +313,19 @@ export function EnrollmentDialog({
         return;
       }
 
+      // Increment promo code usage
+      if (promoDiscount) {
+        try {
+          await supabase.rpc("increment_promo_usage", { promo_code: promoDiscount.code });
+        } catch {
+          // Fallback: direct update if RPC doesn't exist
+          await supabase
+            .from("promo_codes")
+            .update({ current_uses: ((promoDiscount as Record<string, unknown>).current_uses as number ?? 0) + 1 })
+            .eq("code", promoDiscount.code);
+        }
+      }
+
       // Full amount covered (by credits or zero-cost) — skip Stripe
       if (grandTotal <= 0) {
         if (priceResult.creditsApplied > 0) {
@@ -312,7 +387,7 @@ export function EnrollmentDialog({
         swimmer_name: `${selectedSwimmer.first_name} ${selectedSwimmer.last_name}`,
         session_name: cls.session.name,
         level: cls.level,
-        amount: Math.round(priceResult.totalDue * 100),
+        amount: Math.round(Math.max(0, priceResult.totalDue - promoAmount) * 100),
         registration_fee: regFeeNeeded ? Math.round(regFeeAmount * 100) : 0,
         credits_applied: Math.round(priceResult.creditsApplied * 100),
         discount_breakdown: discountSummary,
@@ -333,6 +408,9 @@ export function EnrollmentDialog({
     setSiblingCount(0);
     setRegFeeNeeded(false);
     setContextLoading(false);
+    setPromoCode("");
+    setPromoDiscount(null);
+    setPromoError("");
   };
 
   if (!cls) return null;
@@ -510,6 +588,39 @@ export function EnrollmentDialog({
                     </span>
                   </div>
                 )}
+
+                {/* Promo Code */}
+                <div className="space-y-1.5">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Promo code"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value.toUpperCase());
+                        setPromoError("");
+                        if (!e.target.value.trim()) setPromoDiscount(null);
+                      }}
+                      className="h-8 font-mono text-sm tracking-wider"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={validatePromo}
+                      disabled={promoValidating || !promoCode.trim()}
+                    >
+                      {promoValidating ? <Loader2 className="size-3 animate-spin" /> : "Apply"}
+                    </Button>
+                  </div>
+                  {promoError && (
+                    <p className="text-xs text-destructive">{promoError}</p>
+                  )}
+                  {promoDiscount && (
+                    <div className="flex justify-between text-green-600 text-sm">
+                      <span>Promo: {promoDiscount.code} ({promoDiscount.discount_type === "percentage" ? `${promoDiscount.discount_value}%` : `$${promoDiscount.discount_value}`})</span>
+                      <span>-{formatPriceDollars(promoAmount)}</span>
+                    </div>
+                  )}
+                </div>
 
                 {familyCredits > 0 && (
                   <div className="flex items-center justify-between">

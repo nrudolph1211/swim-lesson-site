@@ -68,5 +68,22 @@ export function recommendLevel(answers: boolean[]): number {
   return Math.min(level, 5);
 }
 
+const PROGRAM_TYPE_LABELS: Record<string, string> = {
+  parent_child: "Parent & Child",
+  preschool_group: "Preschool Group",
+  youth_beginner: "Youth Beginner",
+  youth_intermediate: "Youth Intermediate",
+  teen_adult: "Teen/Adult",
+  semi_private: "Semi-Private",
+  private_single: "Private (Single)",
+  private_4pack: "Private (4-Pack)",
+  private_8pack: "Private (8-Pack)",
+};
+
+export function formatProgramType(programType: string | null | undefined): string {
+  if (!programType) return "—";
+  return PROGRAM_TYPE_LABELS[programType] ?? programType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
 export const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;

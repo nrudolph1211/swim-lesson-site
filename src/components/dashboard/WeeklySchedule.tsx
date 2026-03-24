@@ -196,9 +196,14 @@ export function WeeklySchedule({ enrollments }: WeeklyScheduleProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <h3 className="font-heading text-base font-semibold">
-          Upcoming Lessons
-        </h3>
+        <div>
+          <h3 className="font-heading text-base font-semibold">
+            Upcoming Lessons
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {format(weekDays[0], "MMM d")} – {format(weekDays[6], "MMM d, yyyy")}
+          </p>
+        </div>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"

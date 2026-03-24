@@ -26,6 +26,7 @@ import {
   type ProgramType,
   type SeasonType,
 } from "@/lib/pricing";
+import { SWIM_LEVELS, getLevelName } from "@/lib/swim-utils";
 
 export interface ClassFormData {
   level: number;
@@ -84,6 +85,22 @@ function deriveClassType(programType: string): string {
   if (programType.startsWith("private")) return "private";
   if (programType === "semi_private") return "semi_private";
   return "group";
+}
+
+/** Returns allowed levels for a given program type, or null if level is fixed. */
+function getAllowedLevels(programType: string): number[] | null {
+  switch (programType) {
+    case "youth_beginner":
+      return [1, 2, 3, 4];
+    case "youth_intermediate":
+      return [5];
+    case "parent_child":
+      return [0];
+    case "preschool_group":
+      return [1];
+    default:
+      return null; // any level or N/A
+  }
 }
 
 function deriveEndTime(startTime: string, durationMinutes: number): string {
@@ -200,6 +217,34 @@ export function ClassFormDialog({
             </Select>
           </div>
 
+          {/* Level selector — only shown when program type allows multiple levels */}
+          {(() => {
+            const allowed = form.program_type ? getAllowedLevels(form.program_type) : null;
+            if (allowed && allowed.length > 1) {
+              return (
+                <div className="space-y-2">
+                  <Label>Level</Label>
+                  <Select
+                    value={String(form.level)}
+                    onValueChange={(v) => v && set("level", Number(v))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allowed.map((lvl) => (
+                        <SelectItem key={lvl} value={String(lvl)}>
+                          L{lvl}: {getLevelName(lvl)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {/* Base Price */}
           <div className="space-y-2">
             <Label htmlFor="c-price">Session Price ($)</Label>
@@ -282,7 +327,9 @@ export function ClassFormDialog({
               onValueChange={(v) => set("instructor_id", v === "__none__" ? "" : v)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select instructor" />
+                {form.instructor_id
+                  ? instructors.find((i) => i.id === form.instructor_id)?.name ?? "Select instructor"
+                  : "Unassigned"}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">Unassigned</SelectItem>

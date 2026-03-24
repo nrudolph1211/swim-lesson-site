@@ -20,7 +20,7 @@ import {
 import { Copy, Edit, Grid3X3, List, MoreHorizontal, Plus, XCircle, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { getLevelColor, getLevelTextColor, getLevelName, SWIM_LEVELS } from "@/lib/swim-utils";
+import { getLevelColor, getLevelTextColor, getLevelName, SWIM_LEVELS, formatProgramType } from "@/lib/swim-utils";
 import { formatTime } from "@/lib/date-utils";
 import { TableSkeleton } from "@/components/ui/skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -298,22 +298,46 @@ export function ClassesManager({
       return;
     }
 
-    // Cancel all active enrollments for this class
+    // Cancel all active enrollments for this class and notify parents
     if (enrollmentCount > 0) {
-      const enrollmentIds = activeEnrollments!.map((e) => e.id);
-      const { error: enrollErr } = await supabase
+      // Fetch full enrollment details for notifications
+      const { data: fullEnrollments } = await supabase
         .from("enrollments")
-        .update({
-          status: "cancelled",
-          cancelled_at: new Date().toISOString(),
-          cancellation_reason: "Class cancelled by admin",
-        })
-        .in("id", enrollmentIds);
-      if (enrollErr) {
-        toast.error("Class cancelled but failed to update some enrollments.");
-      } else {
-        toast.success(`Class cancelled. ${enrollmentCount} enrollment(s) also cancelled.`);
+        .select("id, swimmer_id, payment_status, swimmer:swimmers(first_name, last_name, family_id)")
+        .eq("class_id", id)
+        .in("status", ["confirmed", "waitlisted"]);
+
+      const enrollmentIds = (fullEnrollments ?? activeEnrollments!).map((e) => e.id);
+
+      // Update status and payment_status
+      for (const enrollment of fullEnrollments ?? []) {
+        const paymentStatus = enrollment.payment_status === "paid" ? "refund_pending" : "cancelled";
+        await supabase
+          .from("enrollments")
+          .update({
+            status: "cancelled",
+            payment_status: paymentStatus,
+            cancelled_at: new Date().toISOString(),
+            cancellation_reason: "Class cancelled by admin",
+          })
+          .eq("id", enrollment.id);
+
+        // Send notification to parent
+        const swimmer = Array.isArray(enrollment.swimmer) ? enrollment.swimmer[0] : enrollment.swimmer;
+        if (swimmer?.family_id) {
+          await supabase.from("notifications").insert({
+            user_id: swimmer.family_id,
+            type: "enrollment_cancelled",
+            title: "Class Cancelled",
+            message: `${swimmer.first_name} ${swimmer.last_name}'s class has been cancelled by the administrator.`,
+            link: "/dashboard",
+            read: false,
+            email_sent: false,
+          });
+        }
       }
+
+      toast.success(`Class cancelled. ${enrollmentIds.length} enrollment(s) also cancelled and parents notified.`);
     } else {
       toast.success("Class cancelled.");
     }
@@ -433,7 +457,7 @@ export function ClassesManager({
                     </span>
                   </TableCell>
                   <TableCell className="hidden text-sm lg:table-cell">
-                    {formatType(c.class_type)}
+                    {c.program_type ? formatProgramType(c.program_type) : formatType(c.class_type)}
                   </TableCell>
                   <TableCell className="hidden text-sm lg:table-cell">
                     {formatPrice(c.base_price)}

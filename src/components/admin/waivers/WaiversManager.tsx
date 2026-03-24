@@ -34,7 +34,7 @@ interface WaiverRecord {
   expires_at: string | null;
   is_active: boolean;
   swimmer: { first_name: string; last_name: string; current_level: number } | null;
-  parent: { full_name: string; email: string } | null;
+  parent: { full_name: string } | null;
 }
 
 type StatusFilter = "all" | "active" | "expiring" | "expired" | "inactive";
@@ -54,7 +54,7 @@ export function WaiversManager() {
     setLoading(true);
     const { data } = await supabase
       .from("waivers")
-      .select("id, swimmer_id, signed_by, signed_at, waiver_version, signature_data, expires_at, is_active, swimmer:swimmers(first_name, last_name, current_level), parent:profiles!signed_by(full_name, email)")
+      .select("id, swimmer_id, signed_by, signed_at, waiver_version, signature_data, expires_at, is_active, swimmer:swimmers(first_name, last_name, current_level), parent:profiles!signed_by(full_name)")
       .order("signed_at", { ascending: false });
 
     setWaivers(
@@ -64,8 +64,8 @@ export function WaiversManager() {
           | { first_name: string; last_name: string; current_level: number }[]
           | null;
         const parent = w.parent as unknown as
-          | { full_name: string; email: string }
-          | { full_name: string; email: string }[]
+          | { full_name: string }
+          | { full_name: string }[]
           | null;
         return {
           ...w,
@@ -213,7 +213,7 @@ export function WaiversManager() {
                   <TableCell>
                     <div>
                       <p className="text-sm">{w.parent?.full_name ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground">{w.parent?.email ?? ""}</p>
+                      <p className="text-xs text-muted-foreground">{w.signed_by.slice(0, 8)}</p>
                     </div>
                   </TableCell>
                   <TableCell>{w.signed_at ? formatDateShort(w.signed_at) : "—"}</TableCell>

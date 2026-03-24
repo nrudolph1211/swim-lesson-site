@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     .select(
       `id, swimmer_id, class_id, status, payment_status,
        swimmer:swimmers!inner(first_name, last_name, family_id, current_level),
-       class:classes!inner(level, day_of_week, start_time, session:sessions!inner(name, start_date))`
+       class:classes(level, day_of_week, start_time, session:sessions(name, start_date))`
     )
     .eq("id", enrollmentId)
     .single();

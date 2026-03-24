@@ -139,14 +139,16 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   }
 
   // 6. Process referral credit on first paid enrollment
+  //    Pass the batch size so we can account for enrollments we just updated
   if (userId) {
-    await processReferralCredit(supabase, userId);
+    await processReferralCredit(supabase, userId, enrollmentIds.length);
   }
 }
 
 async function processReferralCredit(
   supabase: ReturnType<typeof createAdminClient>,
-  userId: string
+  userId: string,
+  batchSize: number = 1
 ) {
   const { data: swimmers } = await supabase
     .from("swimmers")
@@ -162,8 +164,10 @@ async function processReferralCredit(
     .in("swimmer_id", swimmerIds)
     .eq("payment_status", "paid");
 
-  // Only process on the first paid enrollment
-  if ((count ?? 0) > 1) return;
+  // Only process on the first paid enrollment(s).
+  // For batch checkout, all enrollments in the batch become "paid" in this webhook,
+  // so count may equal batchSize even though this is the family's first checkout.
+  if ((count ?? 0) > batchSize) return;
 
   const { data: referral } = await supabase
     .from("referrals")

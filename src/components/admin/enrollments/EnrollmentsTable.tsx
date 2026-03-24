@@ -265,15 +265,42 @@ export function EnrollmentsTable() {
   const executeCancellation = async () => {
     setCancelling(true);
     try {
-      const { error } = await supabase
-        .from("enrollments")
-        .update({
-          status: "cancelled",
-          cancelled_at: new Date().toISOString(),
-          cancellation_reason: cancelReason.trim() || null,
-        })
-        .in("id", cancelIds);
-      if (error) throw error;
+      // For each enrollment, update status AND payment_status appropriately
+      for (const cid of cancelIds) {
+        const enrollment = enrollments.find((en) => en.id === cid);
+        const cancelledPaymentStatus =
+          enrollment?.payment_status === "paid" ? "refund_pending" : "cancelled";
+
+        const { error } = await supabase
+          .from("enrollments")
+          .update({
+            status: "cancelled",
+            payment_status: cancelledPaymentStatus,
+            cancelled_at: new Date().toISOString(),
+            cancellation_reason: cancelReason.trim() || null,
+          })
+          .eq("id", cid);
+        if (error) throw error;
+
+        // Auto-promote next waitlisted swimmer for the same class
+        if (enrollment?.status === "confirmed") {
+          const { data: nextWaitlisted } = await supabase
+            .from("enrollments")
+            .select("id")
+            .eq("class_id", enrollment.class_id)
+            .eq("status", "waitlisted")
+            .order("enrolled_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          if (nextWaitlisted) {
+            await supabase
+              .from("enrollments")
+              .update({ status: "confirmed", waitlist_position: null })
+              .eq("id", nextWaitlisted.id);
+          }
+        }
+      }
       toast.success(`${cancelIds.length} enrollment(s) cancelled.`);
       setSelected(new Set());
       setCancelDialogOpen(false);

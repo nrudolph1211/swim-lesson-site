@@ -104,6 +104,16 @@ export async function POST(request: Request) {
       cancel_url: `${origin}/book/family-scheduler?payment=cancelled`,
     });
 
+    // Mark any existing pending payments for these enrollments as abandoned
+    // (mirrors single checkout logic to prevent stale pending records)
+    for (const item of items) {
+      await supabase
+        .from("payments")
+        .update({ status: "abandoned" })
+        .eq("enrollment_id", item.enrollment_id)
+        .eq("status", "pending");
+    }
+
     // Create payment records for each enrollment
     for (const item of items) {
       await supabase.from("payments").insert({

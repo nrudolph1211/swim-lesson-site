@@ -22,7 +22,7 @@ import { getLevelColor, getLevelTextColor, getLevelName } from "@/lib/swim-utils
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useSwimmers } from "@/hooks/useSwimmers";
-import { formatTimePublic } from "@/lib/date-utils";
+import { formatDateShort, formatTimePublic } from "@/lib/date-utils";
 import type { EventData } from "./EventCard";
 import Link from "next/link";
 
@@ -225,9 +225,9 @@ export function EventRegistrationDialog({
               <p className="font-semibold">{selectedSwimmer.first_name} {selectedSwimmer.last_name}</p>
               <div className="mt-2 space-y-1 text-muted-foreground">
                 <p>Event: <strong>{event.name}</strong></p>
-                <p>Date: {event.start_date} {event.start_date !== event.end_date && `– ${event.end_date}`}</p>
+                <p>Date: {formatDateShort(event.start_date)}{event.start_date !== event.end_date ? ` – ${formatDateShort(event.end_date)}` : ""}</p>
                 {event.daily_start_time && (
-                  <p>Time: {formatTimePublic(event.daily_start_time)} – {formatTimePublic(event.daily_end_time)}</p>
+                  <p>Time: {formatTimePublic(event.daily_start_time)}{event.daily_end_time ? ` – ${formatTimePublic(event.daily_end_time)}` : ""}</p>
                 )}
                 <p>Price: <strong>${event.member_price}</strong></p>
               </div>

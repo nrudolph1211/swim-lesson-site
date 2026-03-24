@@ -138,15 +138,43 @@ export function CampaignManager() {
       case "all_active":
         query = query.eq("status", "confirmed");
         break;
-      case "by_level":
-        query = query.eq("status", "confirmed");
-        // filter by class level via join not possible in count — we'll estimate
-        break;
-      case "by_session":
-        if (audienceSessionId) {
-          query = query.eq("status", "confirmed");
+      case "by_level": {
+        // Join through classes to filter by level
+        const levelNum = parseInt(audienceLevel);
+        const { data: levelClassIds } = await supabase
+          .from("classes")
+          .select("id")
+          .eq("level", levelNum)
+          .eq("is_active", true);
+        const lcIds = (levelClassIds ?? []).map((c) => c.id);
+        if (lcIds.length > 0) {
+          query = query.in("class_id", lcIds).eq("status", "confirmed");
+        } else {
+          setRecipientCount(0);
+          setCountLoading(false);
+          return;
         }
         break;
+      }
+      case "by_session": {
+        if (audienceSessionId) {
+          // Join through classes to filter by session
+          const { data: sessClassIds } = await supabase
+            .from("classes")
+            .select("id")
+            .eq("session_id", audienceSessionId)
+            .eq("is_active", true);
+          const scIds = (sessClassIds ?? []).map((c) => c.id);
+          if (scIds.length > 0) {
+            query = query.in("class_id", scIds).eq("status", "confirmed");
+          } else {
+            setRecipientCount(0);
+            setCountLoading(false);
+            return;
+          }
+        }
+        break;
+      }
       case "by_class":
         if (audienceClassId) {
           query = query.eq("class_id", audienceClassId).eq("status", "confirmed");
@@ -163,7 +191,7 @@ export function CampaignManager() {
     const { count } = await query;
     setRecipientCount(count ?? 0);
     setCountLoading(false);
-  }, [supabase, audienceType, audienceSessionId, audienceClassId]);
+  }, [supabase, audienceType, audienceSessionId, audienceClassId, audienceLevel]);
 
   useEffect(() => {
     if (step === 1) {

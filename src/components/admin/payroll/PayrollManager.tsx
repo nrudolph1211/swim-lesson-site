@@ -210,6 +210,14 @@ export function PayrollManager() {
 
     const clockInDate = new Date(editClockIn);
     const clockOutDate = editClockOut ? new Date(editClockOut) : null;
+
+    // Validate: clock_out must be after clock_in
+    if (clockOutDate && clockOutDate.getTime() <= clockInDate.getTime()) {
+      toast.error("Clock-out must be after clock-in.");
+      setEditSaving(false);
+      return;
+    }
+
     const hours = clockOutDate
       ? Math.round(((clockOutDate.getTime() - clockInDate.getTime()) / 3600000) * 100) / 100
       : null;

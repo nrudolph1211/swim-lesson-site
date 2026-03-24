@@ -46,6 +46,7 @@ interface SessionRow {
   enrollment_open_date: string | null;
   enrollment_close_date: string | null;
   status: string;
+  season_type: string;
   early_bird_discount_percent: number;
   early_bird_deadline: string | null;
   priority_enrollment_start: string | null;
@@ -203,6 +204,7 @@ export function SessionsTable() {
       enrollment_open_date: toDatetimeLocal(s.enrollment_open_date),
       enrollment_close_date: toDatetimeLocal(s.enrollment_close_date),
       status: s.status,
+      season_type: s.season_type ?? "summer_intensive",
       early_bird_discount_percent: s.early_bird_discount_percent ?? 0,
       early_bird_deadline: toDatetimeLocal(s.early_bird_deadline),
       priority_enrollment_start: toDatetimeLocal(s.priority_enrollment_start),
@@ -222,6 +224,7 @@ export function SessionsTable() {
       enrollment_open_date: "",
       enrollment_close_date: "",
       status: "draft",
+      season_type: s.season_type ?? "summer_intensive",
       early_bird_discount_percent: s.early_bird_discount_percent ?? 0,
       early_bird_deadline: "",
       priority_enrollment_start: "",
@@ -239,6 +242,7 @@ export function SessionsTable() {
       enrollment_open_date: data.enrollment_open_date || null,
       enrollment_close_date: data.enrollment_close_date || null,
       status: data.status,
+      season_type: data.season_type,
       early_bird_discount_percent: data.early_bird_discount_percent,
       early_bird_deadline: data.early_bird_deadline || null,
       priority_enrollment_start: data.priority_enrollment_start || null,

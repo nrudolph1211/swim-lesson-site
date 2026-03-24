@@ -129,6 +129,22 @@ export function ClockInOut({ userId }: { userId: string }) {
   const handleClockIn = async () => {
     setActing(true);
     try {
+      // Guard: check for existing active entry to prevent double clock-in
+      const { data: existing } = await supabase
+        .from("time_entries")
+        .select("id")
+        .eq("instructor_id", userId)
+        .is("clock_out", null)
+        .eq("status", "clocked_in")
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        toast.error("You are already clocked in.");
+        await fetchData();
+        return;
+      }
+
       const { error } = await supabase.from("time_entries").insert({
         instructor_id: userId,
         clock_in: new Date().toISOString(),

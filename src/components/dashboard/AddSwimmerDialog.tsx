@@ -86,7 +86,12 @@ export function AddSwimmerDialog({ onAdd }: AddSwimmerDialogProps) {
   };
 
   const canProceed = () => {
-    if (step === 1) return firstName.trim() && lastName.trim() && dob;
+    if (step === 1) {
+      if (!firstName.trim() || !lastName.trim() || !dob) return false;
+      // Reject future dates of birth
+      if (new Date(dob + "T12:00:00") > new Date()) return false;
+      return true;
+    }
     return true;
   };
 
@@ -173,12 +178,18 @@ export function AddSwimmerDialog({ onAdd }: AddSwimmerDialogProps) {
                   id="sw-dob"
                   type="date"
                   value={dob}
+                  max={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setDob(e.target.value)}
                   required
                 />
-                {age !== null && (
+                {age !== null && age >= 0 && (
                   <p className="text-sm text-muted-foreground">
                     Age: {age} year{age !== 1 ? "s" : ""} old
+                  </p>
+                )}
+                {dob && new Date(dob + "T12:00:00") > new Date() && (
+                  <p className="text-sm text-destructive">
+                    Date of birth cannot be in the future.
                   </p>
                 )}
               </div>

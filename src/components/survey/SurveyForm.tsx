@@ -161,16 +161,25 @@ export function SurveyForm({ swimmerId, sessionId }: SurveyFormProps) {
     const isPositive = avgRating >= 4 && wouldRecommend;
 
     if (!isPositive) {
-      // Notify admin about negative feedback
-      await supabase.from("notifications").insert({
-        user_id: swimmer.family_id, // Will be caught by admin notification preferences
-        type: "general",
-        title: "Survey Feedback Received",
-        message: `${swimmerName} left feedback (avg ${avgRating.toFixed(1)} stars). Review in the admin panel.`,
-        link: "/admin/surveys",
-        read: false,
-        email_sent: false,
-      });
+      // Notify admins about negative feedback
+      const { data: admins } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("role", "admin");
+
+      if (admins?.length) {
+        await supabase.from("notifications").insert(
+          admins.map((admin) => ({
+            user_id: admin.id,
+            type: "general",
+            title: "Negative Survey Feedback",
+            message: `${swimmerName} left feedback (avg ${avgRating.toFixed(1)} stars). Review in the admin panel.`,
+            link: "/admin/surveys",
+            read: false,
+            email_sent: false,
+          }))
+        );
+      }
     }
 
     setPhase(isPositive ? "positive" : "negative");

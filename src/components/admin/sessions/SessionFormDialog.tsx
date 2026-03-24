@@ -28,6 +28,7 @@ export interface SessionFormData {
   enrollment_open_date: string;
   enrollment_close_date: string;
   status: string;
+  season_type: string;
   early_bird_discount_percent: number;
   early_bird_deadline: string;
   priority_enrollment_start: string;
@@ -42,6 +43,7 @@ const EMPTY_FORM: SessionFormData = {
   enrollment_open_date: "",
   enrollment_close_date: "",
   status: "draft",
+  season_type: "summer_intensive",
   early_bird_discount_percent: 0,
   early_bird_deadline: "",
   priority_enrollment_start: "",
@@ -149,19 +151,34 @@ export function SessionFormDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={form.status} onValueChange={(v) => v && set("status", v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="enrollment_open">Enrollment Open</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={(v) => v && set("status", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="enrollment_open">Enrollment Open</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Season Type</Label>
+              <Select value={form.season_type} onValueChange={(v) => v && set("season_type", v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="summer_intensive">Summer Intensive</SelectItem>
+                  <SelectItem value="shoulder_spring">Shoulder (Spring)</SelectItem>
+                  <SelectItem value="shoulder_fall">Shoulder (Fall)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

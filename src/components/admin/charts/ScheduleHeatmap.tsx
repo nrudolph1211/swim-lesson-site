@@ -18,7 +18,8 @@ function getColor(count: number, maxCount: number): string {
 }
 
 function formatHour(h: number): string {
-  if (h === 0 || h === 12) return "12p";
+  if (h === 0) return "12a";
+  if (h === 12) return "12p";
   return h < 12 ? `${h}a` : `${h - 12}p`;
 }
 

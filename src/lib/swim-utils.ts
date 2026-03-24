@@ -1,4 +1,5 @@
 export const SWIM_LEVELS = [
+  { id: 0, name: "Parent & Child", color: "#8E44AD", textColor: "#FFFFFF", description: "Parent-assisted water exploration" },
   { id: 1, name: "Water Introduction", color: "#2980B9", textColor: "#FFFFFF", description: "Comfort and safety in the water" },
   { id: 2, name: "Beginner", color: "#219A52", textColor: "#FFFFFF", description: "Independent floating and gliding" },
   { id: 3, name: "Intermediate", color: "#F1C40F", textColor: "#1A1A1A", description: "Stroke basics and endurance" },

@@ -55,6 +55,7 @@ interface ClassesManagerProps {
   sessionId: string;
   sessionName: string;
   sessionDates: string;
+  seasonType?: string;
 }
 
 type ViewMode = "table" | "grid";
@@ -94,6 +95,7 @@ export function ClassesManager({
   sessionId,
   sessionName,
   sessionDates,
+  seasonType = "summer_intensive",
 }: ClassesManagerProps) {
   const supabase = createClient();
   const [classes, setClasses] = useState<ClassRow[]>([]);
@@ -271,6 +273,21 @@ export function ClassesManager({
   };
 
   const cancelClass = async (id: string) => {
+    // Check for active enrollments before cancelling
+    const { data: activeEnrollments } = await supabase
+      .from("enrollments")
+      .select("id")
+      .eq("class_id", id)
+      .in("status", ["confirmed", "waitlisted"])
+      .limit(1);
+
+    if (activeEnrollments && activeEnrollments.length > 0) {
+      const confirmed = window.confirm(
+        "This class has active enrollments. Cancelling it will NOT automatically update those enrollments. Are you sure you want to proceed?"
+      );
+      if (!confirmed) return;
+    }
+
     const { error } = await supabase
       .from("classes")
       .update({ is_active: false })
@@ -498,6 +515,7 @@ export function ClassesManager({
         initial={dialogInitial}
         title={dialogTitle}
         instructors={instructors}
+        seasonType={seasonType as "summer_intensive" | "shoulder_spring" | "shoulder_fall"}
         onSave={handleSave}
       />
     </div>

@@ -172,7 +172,7 @@ export function EventCard({ event, isLoggedIn, onRegistered }: EventCardProps) {
             {isLoggedIn ? (
               <Button
                 onClick={() => setRegisterOpen(true)}
-                disabled={event.status === "full" && isFull}
+                disabled={event.status === "completed" || event.status === "cancelled"}
               >
                 {isFull ? "Join Waitlist" : "Register"}
               </Button>

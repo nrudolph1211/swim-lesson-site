@@ -18,7 +18,7 @@ export default async function SessionClassesPage({
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, name, start_date, end_date, status")
+    .select("id, name, start_date, end_date, status, season_type")
     .eq("id", id)
     .single();
 
@@ -48,6 +48,7 @@ export default async function SessionClassesPage({
         sessionId={session.id}
         sessionName={session.name}
         sessionDates={dateRange}
+        seasonType={session.season_type}
       />
     </div>
   );

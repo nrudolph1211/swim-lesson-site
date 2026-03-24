@@ -277,14 +277,14 @@ export function ClassFormDialog({
           <div className="space-y-2">
             <Label>Instructor</Label>
             <Select
-              value={form.instructor_id}
-              onValueChange={(v) => set("instructor_id", v)}
+              value={form.instructor_id || "__none__"}
+              onValueChange={(v) => set("instructor_id", v === "__none__" ? "" : v)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select instructor" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Unassigned</SelectItem>
+                <SelectItem value="__none__">Unassigned</SelectItem>
                 {instructors.map((inst) => (
                   <SelectItem key={inst.id} value={inst.id}>
                     {inst.name}

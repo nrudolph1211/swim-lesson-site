@@ -292,6 +292,18 @@ export function EventsManager() {
   };
 
   const deleteEvent = async (id: string) => {
+    // Check for active registrations before deleting
+    const { count } = await supabase
+      .from("event_registrations")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", id)
+      .in("status", ["confirmed", "waitlisted"]);
+
+    if (count && count > 0) {
+      toast.error(`Cannot delete: ${count} active registration${count !== 1 ? "s" : ""} exist. Cancel them first.`);
+      return;
+    }
+
     const { error } = await supabase.from("events").delete().eq("id", id);
     if (error) {
       toast.error("Failed to delete event.");

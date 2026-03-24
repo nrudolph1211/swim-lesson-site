@@ -31,7 +31,6 @@ export interface WaiverRow {
 
 export function useSwimmers() {
   const { user } = useAuthContext();
-  const supabase = createClient();
   const [swimmers, setSwimmers] = useState<SwimmerRow[]>([]);
   const [waivers, setWaivers] = useState<WaiverRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +39,7 @@ export function useSwimmers() {
     if (!user) return;
     setLoading(true);
 
+    const supabase = createClient();
     const [swimmerRes, waiverRes] = await Promise.all([
       supabase
         .from("swimmers")
@@ -57,7 +57,7 @@ export function useSwimmers() {
     if (swimmerRes.data) setSwimmers(swimmerRes.data);
     if (waiverRes.data) setWaivers(waiverRes.data);
     setLoading(false);
-  }, [user, supabase]);
+  }, [user]);
 
   useEffect(() => {
     fetchSwimmers();
@@ -75,6 +75,7 @@ export function useSwimmers() {
     swim_experience?: string;
   }) => {
     if (!user) return null;
+    const supabase = createClient();
     const { data: swimmer, error } = await supabase
       .from("swimmers")
       .insert({ ...data, family_id: user.id })

@@ -189,6 +189,7 @@ export function ReportsManager() {
       classAtt[label].total++;
       if (a.status === "present") classAtt[label].present++;
       if (a.status === "absent") classAtt[label].absent++;
+      if (a.status === "makeup") classAtt[label].makeups++;
     }
     setAttendanceRows(
       Object.entries(classAtt).map(([label, d]) => ({
@@ -203,7 +204,7 @@ export function ReportsManager() {
     // ── Instructor performance ──
     const { data: instData } = await supabase
       .from("instructors")
-      .select("id, profile:profiles(full_name)")
+      .select("id, user_id, profile:profiles(full_name)")
       .eq("is_active", true);
 
     const rows: InstructorRow[] = [];
@@ -211,18 +212,13 @@ export function ReportsManager() {
       const profile = Array.isArray(inst.profile) ? inst.profile[0] : inst.profile;
       const name = profile?.full_name ?? "Unknown";
 
-      const { count: classCount } = await supabase
-        .from("classes")
-        .select("id", { count: "exact", head: true })
-        .eq("instructor_id", inst.id)
-        .eq("is_active", true);
-
       const { data: classIds } = await supabase
         .from("classes")
         .select("id")
         .eq("instructor_id", inst.id)
         .eq("is_active", true);
 
+      const classCount = classIds?.length ?? 0;
       let studentCount = 0;
       let attRate = 0;
       let skillsMastered = 0;
@@ -236,17 +232,33 @@ export function ReportsManager() {
           .eq("status", "confirmed");
         studentCount = enrollCount ?? 0;
 
-        const { count: skillCount } = await supabase
-          .from("skill_records")
-          .select("id", { count: "exact", head: true })
-          .eq("updated_by", inst.id)
-          .eq("status", "mastered");
-        skillsMastered = skillCount ?? 0;
+        // Attendance rate for this instructor's classes
+        const { data: instAttData } = await supabase
+          .from("attendance_records")
+          .select("status, enrollment:enrollments!inner(class_id)")
+          .in("enrollment.class_id" as never, ids)
+          .gte("class_date", from)
+          .lte("class_date", to);
+
+        const totalAtt = instAttData?.length ?? 0;
+        const presentAtt = (instAttData ?? []).filter((a) => a.status === "present" || a.status === "makeup").length;
+        attRate = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100) : 0;
+
+        // Use user_id (auth UUID) for updated_by, not instructor table PK
+        const instructorUserId = (inst as Record<string, unknown>).user_id as string | undefined;
+        if (instructorUserId) {
+          const { count: skillCount } = await supabase
+            .from("skill_records")
+            .select("id", { count: "exact", head: true })
+            .eq("updated_by", instructorUserId)
+            .eq("status", "mastered");
+          skillsMastered = skillCount ?? 0;
+        }
       }
 
       rows.push({
         name,
-        classes: classCount ?? 0,
+        classes: classCount,
         students: studentCount,
         attendance_rate: attRate,
         skills_mastered: skillsMastered,
@@ -379,8 +391,8 @@ export function ReportsManager() {
   const exportInstructors = () => {
     downloadCsv(
       "instructor-performance.csv",
-      ["Name", "Classes", "Students", "Skills Mastered"],
-      instructorRows.map((r) => [r.name, String(r.classes), String(r.students), String(r.skills_mastered)])
+      ["Name", "Classes", "Students", "Attendance %", "Skills Mastered"],
+      instructorRows.map((r) => [r.name, String(r.classes), String(r.students), String(r.attendance_rate), String(r.skills_mastered)])
     );
   };
 
@@ -622,6 +634,7 @@ export function ReportsManager() {
                   <TableHead>Instructor</TableHead>
                   <TableHead className="text-right">Classes</TableHead>
                   <TableHead className="text-right">Students</TableHead>
+                  <TableHead className="text-right">Attendance</TableHead>
                   <TableHead className="text-right">Skills Mastered</TableHead>
                 </TableRow>
               </TableHeader>
@@ -631,6 +644,11 @@ export function ReportsManager() {
                     <TableCell className="font-medium">{r.name}</TableCell>
                     <TableCell className="text-right">{r.classes}</TableCell>
                     <TableCell className="text-right">{r.students}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge className={r.attendance_rate >= 80 ? "bg-green-100 text-green-800" : r.attendance_rate >= 60 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}>
+                        {r.attendance_rate}%
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-right">{r.skills_mastered}</TableCell>
                   </TableRow>
                 ))}

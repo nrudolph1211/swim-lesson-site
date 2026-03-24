@@ -266,7 +266,11 @@ export function EnrollmentsTable() {
     try {
       const { error } = await supabase
         .from("enrollments")
-        .update({ status: "cancelled", cancellation_reason: cancelReason.trim() || null })
+        .update({
+          status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: cancelReason.trim() || null,
+        })
         .in("id", cancelIds);
       if (error) throw error;
       toast.success(`${cancelIds.length} enrollment(s) cancelled.`);

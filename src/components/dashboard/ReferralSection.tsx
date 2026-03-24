@@ -10,6 +10,7 @@ import { Copy, Link2, Gift, Users, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { CardSkeleton } from "@/components/ui/skeletons";
 import { InlineError } from "@/components/ui/inline-error";
+import { useSettings } from "@/hooks/useSettings";
 
 function generateRandomCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -23,6 +24,8 @@ function generateRandomCode(): string {
 export function ReferralSection() {
   const { user } = useAuthContext();
   const supabase = createClient();
+  const { getNumber: getSettingNumber, loading: settingsLoading } = useSettings(["referral_credit_amount"]);
+  const creditAmount = getSettingNumber("referral_credit_amount", 25);
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [stats, setStats] = useState({ sent: 0, signedUp: 0, credited: 0, creditsEarned: 0 });
   const [loading, setLoading] = useState(true);
@@ -88,7 +91,7 @@ export function ReferralSection() {
     toast.success("Referral link copied!");
   };
 
-  if (loading) return <CardSkeleton />;
+  if (loading || settingsLoading) return <CardSkeleton />;
 
   if (error) return <InlineError message={error} onRetry={fetchOrCreate} />;
 
@@ -102,7 +105,7 @@ export function ReferralSection() {
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Earn <strong>$15</strong> when a friend enrolls. They get <strong>$15 off</strong> too!
+          Earn <strong>${creditAmount}</strong> when a friend enrolls. They get <strong>${creditAmount} off</strong> too!
         </p>
 
         {referralCode && (

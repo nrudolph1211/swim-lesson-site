@@ -65,6 +65,12 @@ const DEFAULTS: Record<string, unknown> = {
   member_discount_pct: 15,
   military_discount_pct: 20,
   drop_in_surcharge_pct: 25,
+  sibling_discount_2nd_pct: 10,
+  sibling_discount_3rd_pct: 15,
+  early_bird_discount_pct: 15,
+  multi_session_discount_pct: 10,
+  max_discount_stack: 2,
+  annual_registration_fee: 30,
   default_capacity_l1: 4,
   default_capacity_l2: 5,
   default_capacity_l3: 6,
@@ -78,7 +84,7 @@ const DEFAULTS: Record<string, unknown> = {
   waiver_version: "1.0",
   waiver_content: "",
   referral_program_enabled: true,
-  referral_credit_amount: 15,
+  referral_credit_amount: 25,
   google_review_url: "",
   facebook_review_url: "",
   embed_widget_enabled: false,
@@ -295,7 +301,36 @@ export function AdminSettings() {
                   <Input type="number" min={0} max={100} value={getNum("drop_in_surcharge_pct")} onChange={(e) => set("drop_in_surcharge_pct", Number(e.target.value))} />
                 </div>
               </div>
-              <SaveButton saving={saving} onClick={() => saveKeys(["member_discount_pct", "military_discount_pct", "drop_in_surcharge_pct"])} />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Sibling Discount (2nd) %</Label>
+                  <Input type="number" min={0} max={100} value={getNum("sibling_discount_2nd_pct")} onChange={(e) => set("sibling_discount_2nd_pct", Number(e.target.value))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Sibling Discount (3rd+) %</Label>
+                  <Input type="number" min={0} max={100} value={getNum("sibling_discount_3rd_pct")} onChange={(e) => set("sibling_discount_3rd_pct", Number(e.target.value))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Early-Bird Discount %</Label>
+                  <Input type="number" min={0} max={100} value={getNum("early_bird_discount_pct")} onChange={(e) => set("early_bird_discount_pct", Number(e.target.value))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Multi-Session Discount %</Label>
+                  <Input type="number" min={0} max={100} value={getNum("multi_session_discount_pct")} onChange={(e) => set("multi_session_discount_pct", Number(e.target.value))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Max Discount Stack</Label>
+                  <Input type="number" min={1} max={10} value={getNum("max_discount_stack")} onChange={(e) => set("max_discount_stack", Number(e.target.value))} />
+                  <p className="text-xs text-muted-foreground">Max number of discounts that can be combined.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Annual Registration Fee ($)</Label>
+                  <Input type="number" min={0} max={500} step="0.01" value={getNum("annual_registration_fee")} onChange={(e) => set("annual_registration_fee", Number(e.target.value))} />
+                </div>
+              </div>
+              <SaveButton saving={saving} onClick={() => saveKeys(["member_discount_pct", "military_discount_pct", "drop_in_surcharge_pct", "sibling_discount_2nd_pct", "sibling_discount_3rd_pct", "early_bird_discount_pct", "multi_session_discount_pct", "max_discount_stack", "annual_registration_fee"])} />
             </CardContent>
           </Card>
         </TabsContent>

@@ -64,18 +64,18 @@ export function PrintSession() {
       .eq("is_active", true)
       .order("start_time", { ascending: true });
 
-    // Count enrollments per class
+    // Count assignments per class
     const classIds = (classData ?? []).map((c) => c.id);
-    let enrollmentCounts = new Map<string, number>();
+    let assignmentCounts = new Map<string, number>();
     if (classIds.length > 0) {
-      const { data: enrollments } = await supabase
-        .from("enrollments")
+      const { data: assignments } = await supabase
+        .from("class_assignments")
         .select("class_id")
         .in("class_id", classIds)
-        .eq("status", "confirmed");
+        .eq("status", "active");
 
-      for (const e of enrollments ?? []) {
-        enrollmentCounts.set(e.class_id, (enrollmentCounts.get(e.class_id) ?? 0) + 1);
+      for (const e of assignments ?? []) {
+        assignmentCounts.set(e.class_id, (assignmentCounts.get(e.class_id) ?? 0) + 1);
       }
     }
 
@@ -91,7 +91,7 @@ export function PrintSession() {
         start_time: cls.start_time,
         end_time: cls.end_time,
         instructor_name: instructor?.full_name ?? "TBD",
-        enrolled: enrollmentCounts.get(cls.id) ?? 0,
+        enrolled: assignmentCounts.get(cls.id) ?? 0,
         max_capacity: cls.max_capacity,
       };
 

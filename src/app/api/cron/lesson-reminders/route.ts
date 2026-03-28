@@ -72,18 +72,18 @@ export async function GET(request: Request) {
 
   const classIds = activeClasses.map((c) => c.id);
 
-  // Get confirmed enrollments for these classes
+  // Get active class assignments for these classes
   const { data: enrollments } = await supabase
-    .from("enrollments")
+    .from("class_assignments")
     .select(`
       id, class_id, swimmer_id,
       swimmer:swimmers(first_name, last_name, family_id)
     `)
     .in("class_id", classIds)
-    .eq("status", "confirmed");
+    .eq("status", "active");
 
   if (!enrollments?.length) {
-    return NextResponse.json({ sent: 0, reason: "no_enrollments" });
+    return NextResponse.json({ sent: 0, reason: "no_assignments" });
   }
 
   // Check which reminders were already sent today (deduplication)

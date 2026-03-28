@@ -2,10 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import {
   Waves,
-  UserPlus,
   Baby,
   CalendarCheck,
-  Droplets,
   Users,
   Award,
   BarChart3,
@@ -33,11 +31,11 @@ import { InstructorBios } from "@/components/landing/InstructorBios";
 export const metadata: Metadata = {
   title: "Heights Athletic Club — Swim Lessons",
   description:
-    "Book swim lessons at Heights Athletic Club in Harker Heights, TX. Progressive 5-level curriculum for ages 3+. Member, military, and family pricing available.",
+    "Swim lessons at Heights Athletic Club in Harker Heights, TX. Progressive 5-level curriculum for ages 3+. Expert instruction and real-time progress tracking.",
   openGraph: {
     title: "Heights Athletic Club — Swim Lessons",
     description:
-      "Expert swim instruction for ages 3+ in Harker Heights, TX. Small classes, certified instructors, and real progress tracking.",
+      "Expert swim instruction for ages 3+ in Harker Heights, TX. Small classes, certified instructors, and real-time progress tracking.",
     type: "website",
   },
 };
@@ -117,24 +115,24 @@ const levels = [
 
 const steps = [
   {
-    icon: UserPlus,
-    title: "Create Account",
-    desc: "Sign up in seconds with your email — no membership required to enroll.",
+    icon: Phone,
+    title: "Contact Us",
+    desc: "Reach out by phone or email to register for swim lessons.",
   },
   {
     icon: Baby,
-    title: "Add Your Swimmer",
-    desc: "Enter your child's info and we'll recommend the right level to start.",
+    title: "Get Placed",
+    desc: "We'll assess your child's skill level and find the right class.",
   },
   {
     icon: CalendarCheck,
-    title: "Choose a Class",
-    desc: "Pick the days, times, and session that work best for your family.",
+    title: "Start Swimming",
+    desc: "Your child joins their class with expert instruction every week.",
   },
   {
-    icon: Droplets,
-    title: "Start Swimming!",
-    desc: "Show up, sign the waiver, and watch your swimmer grow each week.",
+    icon: BarChart3,
+    title: "Track Progress",
+    desc: "Follow your child's skill development online through our parent portal.",
   },
 ];
 
@@ -156,18 +154,18 @@ const whyCards = [
   },
   {
     icon: Heart,
-    title: "Member Benefits",
-    desc: "HAC members enjoy discounted rates, priority enrollment, and early bird pricing.",
+    title: "Community Focused",
+    desc: "Proudly serving Harker Heights and the Fort Cavazos community since day one.",
   },
   {
     icon: Clock,
     title: "Flexible Scheduling",
-    desc: "Multiple days and times each session, plus makeup credits for missed lessons.",
+    desc: "Multiple days and times each session to fit your family's schedule.",
   },
   {
     icon: Shield,
-    title: "Military Friendly",
-    desc: "Special pricing for active duty and dependents stationed at Fort Cavazos.",
+    title: "Safety First",
+    desc: "Strict safety protocols, lifeguard-certified instructors, and small class ratios.",
   },
 ];
 
@@ -178,19 +176,19 @@ const faqs = [
   },
   {
     q: "How do you determine my child's level?",
-    a: "New swimmers start at Level 1 unless a parent indicates prior experience. During the first class, the instructor will assess your child and recommend the appropriate level. You can also request a free skill assessment before enrolling.",
+    a: "New swimmers start at Level 1 unless a parent indicates prior experience. During the first class, the instructor will assess your child and recommend the appropriate level. You can also request a free skill assessment before getting started.",
   },
   {
     q: "What should my child bring to class?",
     a: "A swimsuit, towel, and goggles (optional). We recommend swim diapers for children not yet potty-trained. No flotation devices are allowed during instruction. Sunscreen should be applied at least 15 minutes before class.",
   },
   {
-    q: "What is the cancellation and makeup policy?",
-    a: "You can cancel with a full refund up to 24 hours before the session starts. After the session begins, you'll receive makeup credits for missed classes (up to 2 per session). Makeup credits must be used within the current session.",
+    q: "What if my child misses a class?",
+    a: "If your child needs to miss a class due to illness or scheduling conflicts, contact us and we'll work with you on makeup options when available.",
   },
   {
     q: "Do I need to be an HAC member?",
-    a: "No! Swim lessons are open to the entire community. HAC members receive discounted rates and priority enrollment windows, but everyone is welcome to register at our standard pricing.",
+    a: "No! Swim lessons are open to the entire community. Contact us to register — everyone is welcome.",
   },
   {
     q: "What certifications do instructors have?",
@@ -253,12 +251,12 @@ export default function HomePage() {
             </p>
 
             <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/book">
+              <Link href="/schedule">
                 <Button
                   size="lg"
                   className="bg-white text-primary hover:bg-white/90"
                 >
-                  Browse Classes
+                  View Schedule
                   <ChevronRight className="ml-1 size-4" />
                 </Button>
               </Link>
@@ -367,7 +365,7 @@ export default function HomePage() {
             How It Works
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-lg text-muted-foreground">
-            From sign-up to splash — it only takes a few minutes.
+            Getting started with swim lessons is easy.
           </p>
 
           <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -440,133 +438,6 @@ export default function HomePage() {
 
       {/* ── TESTIMONIALS ── */}
       <TestimonialsCarousel />
-
-      {/* ── PRICING ── */}
-      <section className="border-y bg-muted/40 py-20 sm:py-28">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-center font-heading text-3xl font-bold sm:text-4xl">
-            Simple, Transparent Pricing
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-center text-lg text-muted-foreground">
-            Session-based pricing with small class sizes and expert instruction.
-          </p>
-
-          <div className="mx-auto mt-14 grid max-w-4xl gap-6 sm:grid-cols-3">
-            {/* Group Lessons */}
-            <Card className="relative overflow-hidden border-primary/30 transition-shadow hover:shadow-lg">
-              <div className="absolute inset-x-0 top-0 h-1 bg-primary" />
-              <CardContent className="p-6 text-center">
-                <Badge variant="secondary" className="mb-3">
-                  Group Lessons
-                </Badge>
-                <div className="mt-2">
-                  <span className="font-heading text-4xl font-bold">$120</span>
-                  <span className="text-muted-foreground"> – $160</span>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  per session (8 lessons)
-                </p>
-                <ul className="mt-5 space-y-2 text-left text-sm">
-                  <li className="flex items-center gap-2">
-                    <Check className="size-4 text-green-500" />
-                    Small classes (4–6 students max)
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="size-4 text-green-500" />
-                    Ages 6 months through adult
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="size-4 text-green-500" />
-                    25–45 minute classes
-                  </li>
-                </ul>
-                <Link href="/book" className="mt-6 block">
-                  <Button className="w-full">View Available Classes</Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Semi-Private */}
-            <Card className="transition-shadow hover:shadow-lg">
-              <CardContent className="p-6 text-center">
-                <Badge variant="outline" className="mb-3">
-                  Semi-Private
-                </Badge>
-                <div className="mt-2">
-                  <span className="font-heading text-4xl font-bold">$280</span>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  per session (8 lessons, 2 students)
-                </p>
-                <ul className="mt-5 space-y-2 text-left text-sm">
-                  <li className="flex items-center gap-2">
-                    <Check className="size-4 text-green-500" />
-                    Personalized attention
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="size-4 text-green-500" />
-                    All ages and skill levels
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="size-4 text-green-500" />
-                    30 minute classes
-                  </li>
-                </ul>
-                <Link href="/book" className="mt-6 block">
-                  <Button variant="outline" className="w-full">
-                    View Available Classes
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-
-            {/* Private */}
-            <Card className="relative overflow-hidden transition-shadow hover:shadow-lg">
-              <div className="absolute inset-x-0 top-0 h-1 bg-accent" />
-              <CardContent className="p-6 text-center">
-                <Badge
-                  variant="secondary"
-                  className="mb-3 bg-accent/10 text-accent"
-                >
-                  Private Lessons
-                </Badge>
-                <div className="mt-2">
-                  <span className="text-sm text-muted-foreground">From </span>
-                  <span className="font-heading text-4xl font-bold">$47</span>
-                  <span className="text-muted-foreground"> /lesson</span>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Single lessons or save with packages
-                </p>
-                <ul className="mt-5 space-y-2 text-left text-sm">
-                  <li className="flex items-center gap-2">
-                    <Check className="size-4 text-green-500" />
-                    One-on-one instruction
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="size-4 text-green-500" />
-                    Flexible scheduling
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="size-4 text-green-500" />
-                    4-pack and 8-pack savings
-                  </li>
-                </ul>
-                <Link href="/book" className="mt-6 block">
-                  <Button variant="outline" className="w-full">
-                    View Available Classes
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
-
-          <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-muted-foreground">
-            Military, member, sibling &amp; early-bird discounts available — up to 25% off.
-            $30 annual registration fee per family.
-          </p>
-        </div>
-      </section>
 
       {/* ── VISIT US ── */}
       <section className="py-20 sm:py-28">
@@ -656,7 +527,7 @@ export default function HomePage() {
             Frequently Asked Questions
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-center text-muted-foreground">
-            Everything you need to know before enrolling.
+            Everything you need to know about our swim program.
           </p>
 
           <Accordion className="mt-12">
@@ -680,7 +551,7 @@ export default function HomePage() {
             <div className="relative">
               <Waves className="mx-auto mb-6 size-12 text-white/80" />
               <h2 className="font-heading text-3xl font-bold sm:text-4xl">
-                Ready to Dive In?
+                Interested in Swim Lessons?
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-lg text-white/80">
                 Join hundreds of Harker Heights families who trust HAC Swim for
@@ -688,25 +559,29 @@ export default function HomePage() {
               </p>
 
               <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                <Link href="/register">
+                <Link href="/schedule">
                   <Button
                     size="lg"
                     className="bg-white text-primary hover:bg-white/90"
                   >
-                    Create Your Account
+                    View Schedule
                     <ChevronRight className="ml-1 size-4" />
                   </Button>
                 </Link>
-                <Link href="/book">
+                <a href="mailto:craig@heightsathleticclub.com">
                   <Button
                     size="lg"
                     variant="outline"
                     className="border-white/30 text-white hover:bg-white/10"
                   >
-                    Browse Classes
+                    <Mail className="mr-2 size-4" />
+                    Contact Us
                   </Button>
-                </Link>
+                </a>
               </div>
+              <p className="mt-6 text-sm text-white/60">
+                Call (254) 500-3320 or email craig@heightsathleticclub.com
+              </p>
             </div>
           </div>
         </div>

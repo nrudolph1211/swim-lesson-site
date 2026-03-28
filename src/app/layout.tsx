@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     default: "Heights Athletic Club — Swim Lessons",
   },
   description:
-    "Book swim lessons at Heights Athletic Club in Harker Heights, TX. Group and private lessons for all ages and skill levels.",
+    "Swim lesson tracking and scheduling at Heights Athletic Club in Harker Heights, TX. Group and private lessons for all ages and skill levels.",
   keywords: [
     "swim lessons",
     "Harker Heights",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Heights Athletic Club — Swim Lessons",
     description:
-      "Book swim lessons at Heights Athletic Club in Harker Heights, TX. Group and private lessons for all ages and skill levels.",
+      "Swim lesson tracking and scheduling at Heights Athletic Club in Harker Heights, TX. Group and private lessons for all ages and skill levels.",
     siteName: "HAC Swim",
     locale: "en_US",
     type: "website",

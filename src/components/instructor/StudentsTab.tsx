@@ -73,17 +73,17 @@ export function StudentsTab({ userId }: { userId: string }) {
     const classIds = classData.map((c) => c.id);
     const classMap = new Map(classData.map((c) => [c.id, c]));
 
-    // Get enrollments
-    const { data: enrollments } = await supabase
-      .from("enrollments")
+    // Get class assignments
+    const { data: assignments } = await supabase
+      .from("class_assignments")
       .select("class_id, swimmer_id, swimmer:swimmers(first_name, last_name, date_of_birth, current_level, medical_notes, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship)")
       .in("class_id", classIds)
-      .eq("status", "confirmed");
+      .eq("status", "active");
 
     // Deduplicate by swimmer_id
     const swimmerMap = new Map<string, StudentEntry>();
 
-    for (const e of enrollments ?? []) {
+    for (const e of assignments ?? []) {
       const sw = e.swimmer as unknown as
         | { first_name: string; last_name: string; date_of_birth: string; current_level: number; medical_notes: string | null; emergency_contact_name: string | null; emergency_contact_phone: string | null; emergency_contact_relationship: string | null }
         | { first_name: string; last_name: string; date_of_birth: string; current_level: number; medical_notes: string | null; emergency_contact_name: string | null; emergency_contact_phone: string | null; emergency_contact_relationship: string | null }[]
@@ -165,8 +165,8 @@ export function StudentsTab({ userId }: { userId: string }) {
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Users className="size-10" />}
-          title={search ? "No students match your search" : "No students enrolled"}
-          description={search ? "Try a different search term." : "Students will appear here once they enroll in your classes."}
+          title={search ? "No students match your search" : "No students assigned"}
+          description={search ? "Try a different search term." : "Students will appear here once they are assigned to your classes."}
         />
       ) : (
         <div className="space-y-2">

@@ -54,8 +54,7 @@ interface SwimmerFull {
 interface EnrollmentHistory {
   id: string;
   status: string;
-  payment_status: string;
-  enrolled_at: string;
+  created_at: string;
   class: {
     level: number;
     day_of_week: string[];
@@ -104,12 +103,12 @@ export function SwimmerDetail({ swimmerId, onUpdated }: SwimmerDetailProps) {
           .eq("id", swimmerId)
           .single(),
         supabase
-          .from("enrollments")
+          .from("class_assignments")
           .select(
-            "id, status, payment_status, enrolled_at, class:classes(level, day_of_week, start_time, session:sessions(name))"
+            "id, status, created_at, class:classes(level, day_of_week, start_time, session:sessions(name))"
           )
           .eq("swimmer_id", swimmerId)
-          .order("enrolled_at", { ascending: false }),
+          .order("created_at", { ascending: false }),
         supabase
           .from("waivers")
           .select("id, signed_at, expires_at, is_active, waiver_version")
@@ -312,21 +311,11 @@ export function SwimmerDetail({ swimmerId, onUpdated }: SwimmerDetailProps) {
                   <div className="flex items-center gap-2">
                     <Badge
                       variant={
-                        e.status === "confirmed" ? "default" :
-                        e.status === "waitlisted" ? "secondary" : "outline"
+                        e.status === "active" ? "default" :
+                        e.status === "completed" ? "secondary" : "outline"
                       }
                     >
                       {e.status}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={
-                        e.payment_status === "paid"
-                          ? "border-green-500 text-green-600"
-                          : "border-orange-500 text-orange-600"
-                      }
-                    >
-                      {e.payment_status}
                     </Badge>
                   </div>
                 </div>

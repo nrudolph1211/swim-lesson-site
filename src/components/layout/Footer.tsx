@@ -50,13 +50,8 @@ export function Footer() {
             </h3>
             <ul className="mt-3 space-y-2 text-sm">
               <li>
-                <Link href="/book" className="hover:text-white">
-                  Book Lessons
-                </Link>
-              </li>
-              <li>
-                <Link href="/events" className="hover:text-white">
-                  Camps & Events
+                <Link href="/schedule" className="hover:text-white">
+                  Lesson Schedule
                 </Link>
               </li>
               <li>

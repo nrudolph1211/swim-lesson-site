@@ -8,17 +8,22 @@ import { format, addDays, startOfWeek, isSameDay, parseISO } from "date-fns";
 import { formatTime } from "@/lib/date-utils";
 import { getLevelColor } from "@/lib/swim-utils";
 import { DAY_NAMES, DAY_SHORT } from "@/lib/swim-utils";
-import type { EnrollmentWithDetails } from "@/hooks/useEnrollments";
+import type { ClassAssignmentWithDetails } from "@/hooks/useClassAssignments";
 
 interface WeeklyScheduleProps {
-  enrollments: EnrollmentWithDetails[];
+  assignments: ClassAssignmentWithDetails[];
+}
+
+interface ScheduleEntry {
+  date: Date;
+  assignment: ClassAssignmentWithDetails;
 }
 
 function getClassDatesForWeek(
-  enrollment: EnrollmentWithDetails,
+  assignment: ClassAssignmentWithDetails,
   weekStart: Date
 ): Date[] {
-  const cls = enrollment.class;
+  const cls = assignment.class;
   if (!cls?.day_of_week || !cls.session) return [];
 
   const sessionStart = parseISO(cls.session.start_date);
@@ -39,7 +44,6 @@ function getClassDatesForWeek(
   return dates;
 }
 
-// Consistent color per swimmer
 const SWIMMER_COLORS = [
   "#3498DB", "#27AE60", "#E67E22", "#9B59B6", "#E74C3C", "#1ABC9C",
 ];
@@ -51,7 +55,7 @@ function MobileDailyView({
   swimmerColorMap,
 }: {
   weekDays: Date[];
-  entries: { date: Date; enrollment: EnrollmentWithDetails }[];
+  entries: ScheduleEntry[];
   today: Date;
   swimmerColorMap: Map<string, string>;
 }) {
@@ -76,7 +80,6 @@ function MobileDailyView({
 
   return (
     <div className="sm:hidden" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      {/* Day pills */}
       <div className="mb-3 flex gap-1 overflow-x-auto pb-1">
         {weekDays.map((d, i) => {
           const hasLessons = entries.some((e) => isSameDay(e.date, d));
@@ -104,13 +107,11 @@ function MobileDailyView({
         })}
       </div>
 
-      {/* Day header */}
       <p className={`mb-2 text-sm font-medium ${isToday ? "text-primary" : "text-muted-foreground"}`}>
         {format(day, "EEEE, MMM d")}
         {isToday && " (Today)"}
       </p>
 
-      {/* Entries */}
       {dayEntries.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">
           No lessons on {format(day, "EEEE")}.
@@ -119,23 +120,23 @@ function MobileDailyView({
         <div className="space-y-2">
           {dayEntries.map((entry, i) => (
             <div
-              key={`${entry.enrollment.id}-${i}`}
+              key={`${entry.assignment.id}-${i}`}
               className="flex items-center gap-3 rounded-lg border p-3 min-h-[56px]"
               style={{
                 borderLeftWidth: 3,
                 borderLeftColor:
-                  swimmerColorMap.get(entry.enrollment.swimmer_id) ??
-                  getLevelColor(entry.enrollment.class?.level ?? 1),
+                  swimmerColorMap.get(entry.assignment.swimmer_id) ??
+                  getLevelColor(entry.assignment.class?.level ?? 1),
               }}
             >
               <div className="flex-1">
                 <span className="font-medium">
-                  {formatTime(entry.enrollment.class?.start_time)} –{" "}
-                  {formatTime(entry.enrollment.class?.end_time)}
+                  {formatTime(entry.assignment.class?.start_time)} –{" "}
+                  {formatTime(entry.assignment.class?.end_time)}
                 </span>
                 <p className="text-sm text-muted-foreground">
-                  {entry.enrollment.swimmer?.first_name} • Level{" "}
-                  {entry.enrollment.class?.level}
+                  {entry.assignment.swimmer?.first_name} &bull; Level{" "}
+                  {entry.assignment.class?.level}
                 </p>
               </div>
             </div>
@@ -146,7 +147,7 @@ function MobileDailyView({
   );
 }
 
-export function WeeklySchedule({ enrollments }: WeeklyScheduleProps) {
+export function WeeklySchedule({ assignments }: WeeklyScheduleProps) {
   const [weekOffset, setWeekOffset] = useState(0);
   const weekStart = startOfWeek(addDays(new Date(), weekOffset * 7), {
     weekStartsOn: 1,
@@ -154,41 +155,37 @@ export function WeeklySchedule({ enrollments }: WeeklyScheduleProps) {
 
   const swimmerColorMap = useMemo(() => {
     const map = new Map<string, string>();
-    const uniqueSwimmers = [...new Set(enrollments.map((e) => e.swimmer_id))];
+    const uniqueSwimmers = [...new Set(assignments.map((a) => a.swimmer_id))];
     uniqueSwimmers.forEach((id, i) => {
       map.set(id, SWIMMER_COLORS[i % SWIMMER_COLORS.length]);
     });
     return map;
-  }, [enrollments]);
+  }, [assignments]);
 
-  const activeEnrollments = useMemo(
-    () => enrollments.filter(
-      (e) => e.status === "confirmed" && e.class?.session?.status !== "completed"
+  const activeAssignments = useMemo(
+    () => assignments.filter(
+      (a) => a.status === "active" && a.class?.session?.status !== "completed"
     ),
-    [enrollments]
+    [assignments]
   );
 
-  // Build schedule entries
   const entries = useMemo(() => {
-    const result: {
-      date: Date;
-      enrollment: EnrollmentWithDetails;
-    }[] = [];
+    const result: ScheduleEntry[] = [];
 
-    for (const enrollment of activeEnrollments) {
-      const dates = getClassDatesForWeek(enrollment, weekStart);
+    for (const assignment of activeAssignments) {
+      const dates = getClassDatesForWeek(assignment, weekStart);
       for (const date of dates) {
-        result.push({ date, enrollment });
+        result.push({ date, assignment });
       }
     }
 
     return result.sort((a, b) => {
       if (!isSameDay(a.date, b.date)) return a.date.getTime() - b.date.getTime();
-      return (a.enrollment.class?.start_time ?? "").localeCompare(
-        b.enrollment.class?.start_time ?? ""
+      return (a.assignment.class?.start_time ?? "").localeCompare(
+        b.assignment.class?.start_time ?? ""
       );
     });
-  }, [activeEnrollments, weekStart]);
+  }, [activeAssignments, weekStart]);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
@@ -198,39 +195,25 @@ export function WeeklySchedule({ enrollments }: WeeklyScheduleProps) {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div>
           <h3 className="font-heading text-base font-semibold">
-            Upcoming Lessons
+            Class Schedule
           </h3>
           <p className="text-xs text-muted-foreground">
             {format(weekDays[0], "MMM d")} – {format(weekDays[6], "MMM d, yyyy")}
           </p>
         </div>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setWeekOffset((o) => o - 1)}
-          >
+          <Button variant="ghost" size="icon-sm" onClick={() => setWeekOffset((o) => o - 1)}>
             <ChevronLeft className="size-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setWeekOffset(0)}
-            className="text-xs"
-          >
+          <Button variant="ghost" size="sm" onClick={() => setWeekOffset(0)} className="text-xs">
             This Week
           </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setWeekOffset((o) => o + 1)}
-          >
+          <Button variant="ghost" size="icon-sm" onClick={() => setWeekOffset((o) => o + 1)}>
             <ChevronRight className="size-4" />
           </Button>
         </div>
       </CardHeader>
       <CardContent>
-        {/* Desktop grid */}
         <div className="hidden sm:grid sm:grid-cols-7 sm:gap-1">
           {weekDays.map((day) => {
             const dayEntries = entries.filter((e) => isSameDay(e.date, day));
@@ -255,21 +238,21 @@ export function WeeklySchedule({ enrollments }: WeeklyScheduleProps) {
                 <div className="space-y-1">
                   {dayEntries.map((entry, i) => (
                     <div
-                      key={`${entry.enrollment.id}-${i}`}
+                      key={`${entry.assignment.id}-${i}`}
                       className="rounded-md border px-1.5 py-1 text-[10px] leading-tight"
                       style={{
                         borderLeftWidth: 3,
                         borderLeftColor:
-                          swimmerColorMap.get(entry.enrollment.swimmer_id) ??
-                          getLevelColor(entry.enrollment.class?.level ?? 1),
+                          swimmerColorMap.get(entry.assignment.swimmer_id) ??
+                          getLevelColor(entry.assignment.class?.level ?? 1),
                       }}
                     >
                       <span className="font-medium">
-                        {formatTime(entry.enrollment.class?.start_time)}
+                        {formatTime(entry.assignment.class?.start_time)}
                       </span>
                       <br />
                       <span className="text-muted-foreground">
-                        {entry.enrollment.swimmer?.first_name}
+                        {entry.assignment.swimmer?.first_name}
                       </span>
                     </div>
                   ))}
@@ -279,7 +262,6 @@ export function WeeklySchedule({ enrollments }: WeeklyScheduleProps) {
           })}
         </div>
 
-        {/* Mobile: daily list with swipe */}
         <MobileDailyView
           weekDays={weekDays}
           entries={entries}

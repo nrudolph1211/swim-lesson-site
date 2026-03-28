@@ -99,15 +99,15 @@ export function SessionsTable() {
       if (sessionError) throw sessionError;
 
       if (sessionData) {
-        // Get enrollment counts per session
+        // Get assignment counts per session
         const sessionIds = sessionData.map((s) => s.id);
-        const { data: enrollments } = await supabase
-          .from("enrollments")
+        const { data: assignments } = await supabase
+          .from("class_assignments")
           .select("id, class:classes!inner(session_id)")
-          .eq("status", "confirmed");
+          .eq("status", "active");
 
         const countMap = new Map<string, number>();
-        for (const e of enrollments ?? []) {
+        for (const e of assignments ?? []) {
           const cls = e.class as unknown as { session_id: string } | { session_id: string }[];
           const sessionId = Array.isArray(cls)
             ? cls[0]?.session_id

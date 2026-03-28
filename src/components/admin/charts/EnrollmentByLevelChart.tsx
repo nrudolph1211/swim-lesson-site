@@ -16,6 +16,7 @@ interface Props {
   data: { level: number; count: number }[];
 }
 
+/** Chart showing swimmer count per level (historically named EnrollmentByLevelChart). */
 export function EnrollmentByLevelChart({ data }: Props) {
   const chartData = data.map((d) => ({
     ...d,
@@ -26,7 +27,7 @@ export function EnrollmentByLevelChart({ data }: Props) {
   if (chartData.every((d) => d.count === 0)) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
-        No enrollment data yet.
+        No swimmer data yet.
       </p>
     );
   }
@@ -39,7 +40,7 @@ export function EnrollmentByLevelChart({ data }: Props) {
         <YAxis fontSize={12} tickLine={false} allowDecimals={false} />
         <Tooltip
           formatter={(value, _name, props) => [
-            `${value} enrolled`,
+            `${value} swimmers`,
             getLevelName((props.payload as { level: number }).level),
           ]}
         />

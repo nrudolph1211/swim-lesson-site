@@ -31,7 +31,7 @@ interface ClassInfo {
 }
 
 interface StudentInfo {
-  enrollment_id: string;
+  assignment_id: string;
   swimmer_id: string;
   first_name: string;
   last_name: string;
@@ -41,7 +41,7 @@ interface StudentInfo {
 }
 
 interface AttendanceStatus {
-  enrollment_id: string;
+  assignment_id: string;
   status: "present" | "absent" | "excused";
 }
 
@@ -120,13 +120,13 @@ export function TodayTab({ userId }: { userId: string }) {
     if (students.has(classId)) return;
 
     try {
-      const { data, error: enrollErr } = await supabase
-        .from("enrollments")
+      const { data, error: assignErr } = await supabase
+        .from("class_assignments")
         .select("id, swimmer_id, swimmer:swimmers(first_name, last_name, date_of_birth, current_level, medical_notes)")
         .eq("class_id", classId)
-        .eq("status", "confirmed");
+        .eq("status", "active");
 
-      if (enrollErr) throw enrollErr;
+      if (assignErr) throw assignErr;
 
       const mapped: StudentInfo[] = (data ?? []).map((e) => {
         const sw = e.swimmer as unknown as
@@ -135,7 +135,7 @@ export function TodayTab({ userId }: { userId: string }) {
           | null;
         const s = Array.isArray(sw) ? sw[0] : sw;
         return {
-          enrollment_id: e.id,
+          assignment_id: e.id,
           swimmer_id: e.swimmer_id,
           first_name: s?.first_name ?? "",
           last_name: s?.last_name ?? "",
@@ -149,21 +149,21 @@ export function TodayTab({ userId }: { userId: string }) {
 
       // Load existing attendance for today
       if (mapped.length > 0) {
-        const enrollmentIds = mapped.map((m) => m.enrollment_id);
+        const assignmentIds = mapped.map((m) => m.assignment_id);
         const { data: existing } = await supabase
           .from("attendance_records")
-          .select("enrollment_id, status")
-          .in("enrollment_id", enrollmentIds)
+          .select("class_assignment_id, status")
+          .in("class_assignment_id", assignmentIds)
           .eq("class_date", todayDate);
 
-        const existingMap = new Map((existing ?? []).map((a) => [a.enrollment_id, a.status]));
+        const existingMap = new Map((existing ?? []).map((a) => [a.class_assignment_id, a.status]));
 
         setAttendance((prev) =>
           new Map(prev).set(
             classId,
             mapped.map((m) => ({
-              enrollment_id: m.enrollment_id,
-              status: (existingMap.get(m.enrollment_id) as "present" | "absent" | "excused") ?? "present",
+              assignment_id: m.assignment_id,
+              status: (existingMap.get(m.assignment_id) as "present" | "absent" | "excused") ?? "present",
             }))
           )
         );
@@ -183,11 +183,11 @@ export function TodayTab({ userId }: { userId: string }) {
     }
   };
 
-  const toggleAttendance = (classId: string, enrollmentId: string) => {
+  const toggleAttendance = (classId: string, assignmentId: string) => {
     setAttendance((prev) => {
       const next = new Map(prev);
       const list = (next.get(classId) ?? []).map((a) =>
-        a.enrollment_id === enrollmentId
+        a.assignment_id === assignmentId
           ? { ...a, status: (a.status === "present" ? "absent" : "present") as "present" | "absent" }
           : a
       );
@@ -206,13 +206,13 @@ export function TodayTab({ userId }: { userId: string }) {
           .from("attendance_records")
           .upsert(
             {
-              enrollment_id: record.enrollment_id,
+              class_assignment_id: record.assignment_id,
               class_date: todayDate,
               status: record.status,
               recorded_by: userId,
               recorded_at: new Date().toISOString(),
             },
-            { onConflict: "enrollment_id,class_date", ignoreDuplicates: false }
+            { onConflict: "class_assignment_id,class_date", ignoreDuplicates: false }
           );
       }
 
@@ -344,19 +344,19 @@ export function TodayTab({ userId }: { userId: string }) {
                 {studs.length === 0 ? (
                   <EmptyState
                     icon={<Users className="size-8" />}
-                    title="No students enrolled"
-                    description="There are no confirmed enrollments for this class yet."
+                    title="No students assigned"
+                    description="There are no active assignments for this class yet."
                     className="py-6"
                   />
                 ) : (
                   <div className="space-y-1.5">
                     {studs.map((s) => {
-                      const attRecord = att.find((a) => a.enrollment_id === s.enrollment_id);
+                      const attRecord = att.find((a) => a.assignment_id === s.assignment_id);
                       const isPresent = attRecord?.status === "present";
 
                       return (
                         <div
-                          key={s.enrollment_id}
+                          key={s.assignment_id}
                           className="flex items-center justify-between rounded-lg border p-3 min-h-[56px]"
                         >
                           <div className="flex items-center gap-2">
@@ -382,7 +382,7 @@ export function TodayTab({ userId }: { userId: string }) {
                               </span>
                               <Switch
                                 checked={isPresent}
-                                onCheckedChange={() => toggleAttendance(cls.id, s.enrollment_id)}
+                                onCheckedChange={() => toggleAttendance(cls.id, s.assignment_id)}
                                 className="scale-150"
                               />
                             </div>

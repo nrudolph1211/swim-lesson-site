@@ -48,7 +48,6 @@ export default async function SessionClassesPage({
         sessionId={session.id}
         sessionName={session.name}
         sessionDates={dateRange}
-        seasonType={session.season_type}
       />
     </div>
   );

@@ -61,9 +61,9 @@ export function PrintRoster({ classId }: { classId: string }) {
       });
     }
 
-    // Fetch enrolled students with emergency contact info
-    const { data: enrollments } = await supabase
-      .from("enrollments")
+    // Fetch assigned students with emergency contact info
+    const { data: assignments } = await supabase
+      .from("class_assignments")
       .select(`
         swimmer:swimmers(
           first_name, last_name, date_of_birth,
@@ -72,9 +72,9 @@ export function PrintRoster({ classId }: { classId: string }) {
         )
       `)
       .eq("class_id", classId)
-      .eq("status", "confirmed");
+      .eq("status", "active");
 
-    const rows: StudentRow[] = (enrollments ?? []).map((e) => {
+    const rows: StudentRow[] = (assignments ?? []).map((e) => {
       const sw = Array.isArray(e.swimmer) ? e.swimmer[0] : e.swimmer;
       return {
         first_name: sw?.first_name ?? "",

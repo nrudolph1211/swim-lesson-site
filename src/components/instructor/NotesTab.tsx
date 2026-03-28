@@ -81,17 +81,17 @@ export function NotesTab({ userId }: { userId: string }) {
 
       const classIds = classData.map((c) => c.id);
 
-      // Get enrolled swimmers (deduplicated)
-      const { data: enrollments, error: enrollErr } = await supabase
-        .from("enrollments")
+      // Get assigned swimmers (deduplicated)
+      const { data: assignments, error: assignErr } = await supabase
+        .from("class_assignments")
         .select("swimmer_id, swimmer:swimmers(first_name, last_name, current_level)")
         .in("class_id", classIds)
-        .eq("status", "confirmed");
+        .eq("status", "active");
 
-      if (enrollErr) throw enrollErr;
+      if (assignErr) throw assignErr;
 
       const swimmerMap = new Map<string, { first_name: string; last_name: string; current_level: number }>();
-      for (const e of enrollments ?? []) {
+      for (const e of assignments ?? []) {
         if (swimmerMap.has(e.swimmer_id)) continue;
         const sw = e.swimmer as unknown as
           | { first_name: string; last_name: string; current_level: number }
@@ -290,7 +290,7 @@ export function NotesTab({ userId }: { userId: string }) {
         <EmptyState
           icon={<FileText className="size-10" />}
           title="No students to review"
-          description="You don't have any enrolled students in this session yet."
+          description="You don't have any assigned students in this session yet."
         />
       ) : (
         <div className="space-y-3">

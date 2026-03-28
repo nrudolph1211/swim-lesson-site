@@ -74,18 +74,18 @@ export function PrintSchedule({ userId }: { userId: string }) {
 
     // Fetch students for all classes
     const classIds = classData.map((c) => c.id);
-    const { data: enrollments } = await supabase
-      .from("enrollments")
+    const { data: assignments } = await supabase
+      .from("class_assignments")
       .select(`
         class_id,
         swimmer:swimmers(first_name, last_name, date_of_birth, medical_notes)
       `)
       .in("class_id", classIds)
-      .eq("status", "confirmed");
+      .eq("status", "active");
 
     // Group students by class
     const studentsByClass = new Map<string, ClassBlock["students"]>();
-    for (const e of enrollments ?? []) {
+    for (const e of assignments ?? []) {
       const sw = Array.isArray(e.swimmer) ? e.swimmer[0] : e.swimmer;
       if (!sw) continue;
       const list = studentsByClass.get(e.class_id) ?? [];

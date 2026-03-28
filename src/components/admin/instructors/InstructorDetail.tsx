@@ -107,17 +107,17 @@ export function InstructorDetail({ instructorId }: InstructorDetailProps) {
     if (classRes.data) {
       const classIds = classRes.data.map((c) => c.id);
 
-      // Get enrollment counts
-      const { data: enrollments } = await supabase
-        .from("enrollments")
+      // Get assignment counts
+      const { data: assignments } = await supabase
+        .from("class_assignments")
         .select("class_id, swimmer_id, swimmer:swimmers(first_name, last_name, current_level)")
         .in("class_id", classIds.length > 0 ? classIds : ["__none__"])
-        .eq("status", "confirmed");
+        .eq("status", "active");
 
       const countMap = new Map<string, number>();
       const studentList: StudentInfo[] = [];
 
-      for (const e of enrollments ?? []) {
+      for (const e of assignments ?? []) {
         countMap.set(e.class_id, (countMap.get(e.class_id) ?? 0) + 1);
         const sw = e.swimmer as unknown as
           | { first_name: string; last_name: string; current_level: number }

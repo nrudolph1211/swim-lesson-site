@@ -168,7 +168,7 @@ export function RegisterForm() {
               <div className="flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
                 <Gift className="size-4 shrink-0" />
                 <span>
-                  You were referred! Sign up and get <strong>$25 off</strong> your first enrollment.
+                  You were referred! Welcome to HAC Swim.
                 </span>
               </div>
             )}
@@ -303,7 +303,7 @@ export function RegisterForm() {
                 className="font-mono tracking-wider"
               />
               <p className="text-xs text-muted-foreground">
-                Have a referral code? Enter it here for $25 off your first enrollment.
+                Have a referral code? Enter it here.
               </p>
             </div>
 

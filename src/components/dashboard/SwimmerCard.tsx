@@ -4,16 +4,15 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Baby, FileCheck, ShieldAlert, AlertTriangle } from "lucide-react";
+import { Baby } from "lucide-react";
 import { calculateAge, getLevelName, getLevelColor } from "@/lib/swim-utils";
 import type { SwimmerRow } from "@/hooks/useSwimmers";
 
 interface SwimmerCardProps {
   swimmer: SwimmerRow;
-  waiverStatus: "active" | "expiring" | "required";
 }
 
-export function SwimmerCard({ swimmer, waiverStatus }: SwimmerCardProps) {
+export function SwimmerCard({ swimmer }: SwimmerCardProps) {
   const age = calculateAge(swimmer.date_of_birth);
   const levelColor = getLevelColor(swimmer.current_level);
   const levelName = getLevelName(swimmer.current_level);
@@ -47,40 +46,14 @@ export function SwimmerCard({ swimmer, waiverStatus }: SwimmerCardProps) {
           >
             L{swimmer.current_level}: {levelName}
           </Badge>
-
-          {waiverStatus === "active" && (
-            <Badge variant="outline" className="border-green-500 text-green-600">
-              <FileCheck className="mr-1 size-3" />
-              Waiver Active
-            </Badge>
-          )}
-          {waiverStatus === "expiring" && (
-            <Badge variant="outline" className="border-yellow-500 text-yellow-600">
-              <AlertTriangle className="mr-1 size-3" />
-              Waiver Expiring
-            </Badge>
-          )}
-          {waiverStatus === "required" && (
-            <Badge variant="destructive">
-              <ShieldAlert className="mr-1 size-3" />
-              Waiver Required
-            </Badge>
-          )}
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-4">
           <Link href={`/dashboard?swimmer=${swimmer.id}`}>
             <Button variant="outline" size="sm">
               View Progress
             </Button>
           </Link>
-          {waiverStatus !== "active" && (
-            <Link href={`/waiver/${swimmer.id}`}>
-              <Button size="sm" variant="destructive">
-                Sign Waiver
-              </Button>
-            </Link>
-          )}
         </div>
       </CardContent>
     </Card>

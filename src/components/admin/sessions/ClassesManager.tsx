@@ -20,7 +20,7 @@ import {
 import { Copy, Edit, Grid3X3, List, MoreHorizontal, Plus, XCircle, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { getLevelColor, getLevelTextColor, getLevelName, SWIM_LEVELS, formatProgramType } from "@/lib/swim-utils";
+import { getLevelColor, getLevelTextColor, getLevelName, SWIM_LEVELS } from "@/lib/swim-utils";
 import { formatTime } from "@/lib/date-utils";
 import { TableSkeleton } from "@/components/ui/skeletons";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -31,19 +31,14 @@ interface ClassRow {
   id: string;
   level: number;
   class_type: string;
-  program_type: string | null;
   day_of_week: string[];
   start_time: string;
   end_time: string;
   max_capacity: number;
-  base_price: number | null;
-  member_price: number | null;
-  non_member_price: number | null;
-  military_price: number | null;
   instructor_id: string | null;
   is_active: boolean;
   instructor_name: string | null;
-  enrolled_count: number;
+  assigned_count: number;
 }
 
 interface InstructorOption {
@@ -55,7 +50,6 @@ interface ClassesManagerProps {
   sessionId: string;
   sessionName: string;
   sessionDates: string;
-  seasonType?: string;
 }
 
 type ViewMode = "table" | "grid";
@@ -68,11 +62,6 @@ const DAY_ORDER: Record<string, number> = {
   Friday: 4,
   Saturday: 5,
 };
-
-function formatPrice(v: number | null): string {
-  if (v == null) return "—";
-  return `$${Number(v).toFixed(2)}`;
-}
 
 function formatType(t: string): string {
   if (t === "semi_private") return "Semi-Private";
@@ -95,7 +84,6 @@ export function ClassesManager({
   sessionId,
   sessionName,
   sessionDates,
-  seasonType = "summer_intensive",
 }: ClassesManagerProps) {
   const supabase = createClient();
   const [classes, setClasses] = useState<ClassRow[]>([]);
@@ -119,7 +107,7 @@ export function ClassesManager({
         supabase
           .from("classes")
           .select(
-            "id, level, class_type, program_type, day_of_week, start_time, end_time, max_capacity, base_price, member_price, non_member_price, military_price, instructor_id, is_active, instructor:instructors(profile:profiles(full_name))"
+            "id, level, class_type, day_of_week, start_time, end_time, max_capacity, instructor_id, is_active, instructor:instructors(profile:profiles(full_name))"
           )
           .eq("session_id", sessionId)
           .eq("is_active", true)
@@ -133,18 +121,18 @@ export function ClassesManager({
 
       if (classRes.error) throw classRes.error;
 
-      // Enrollment counts
+      // Assignment counts
       const classIds = (classRes.data ?? []).map((c: { id: string }) => c.id);
       let countMap = new Map<string, number>();
       if (classIds.length > 0) {
-        const { data: enrollments } = await supabase
-          .from("enrollments")
+        const { data: assignments } = await supabase
+          .from("class_assignments")
           .select("class_id")
           .in("class_id", classIds)
-          .eq("status", "confirmed");
-        if (enrollments) {
-          for (const e of enrollments) {
-            countMap.set(e.class_id, (countMap.get(e.class_id) ?? 0) + 1);
+          .eq("status", "active");
+        if (assignments) {
+          for (const a of assignments) {
+            countMap.set(a.class_id, (countMap.get(a.class_id) ?? 0) + 1);
           }
         }
       }
@@ -160,7 +148,7 @@ export function ClassesManager({
             return {
               ...c,
               instructor_name: instObj?.profile?.full_name ?? null,
-              enrolled_count: countMap.get(c.id as string) ?? 0,
+              assigned_count: countMap.get(c.id as string) ?? 0,
             };
           }) as ClassRow[]
         );
@@ -209,13 +197,11 @@ export function ClassesManager({
     setDialogInitial({
       level: c.level,
       class_type: c.class_type,
-      program_type: c.program_type ?? "",
       day_of_week: c.day_of_week,
       start_time: c.start_time?.slice(0, 5) ?? "09:00",
       end_time: c.end_time?.slice(0, 5) ?? "09:30",
       instructor_id: c.instructor_id ?? "",
       max_capacity: c.max_capacity,
-      base_price: c.base_price?.toString() ?? "",
     });
     setDialogOpen(true);
   };
@@ -226,34 +212,25 @@ export function ClassesManager({
     setDialogInitial({
       level: c.level,
       class_type: c.class_type,
-      program_type: c.program_type ?? "",
       day_of_week: c.day_of_week,
       start_time: c.start_time?.slice(0, 5) ?? "09:00",
       end_time: c.end_time?.slice(0, 5) ?? "09:30",
       instructor_id: c.instructor_id ?? "",
       max_capacity: c.max_capacity,
-      base_price: c.base_price?.toString() ?? "",
     });
     setDialogOpen(true);
   };
 
   const handleSave = async (data: ClassFormData) => {
-    const basePrice = data.base_price ? Number(data.base_price) : null;
     const payload = {
       session_id: sessionId,
       level: data.level,
       class_type: data.class_type,
-      program_type: data.program_type || null,
       day_of_week: data.day_of_week,
       start_time: data.start_time,
       end_time: data.end_time,
       instructor_id: data.instructor_id || null,
       max_capacity: data.max_capacity,
-      base_price: basePrice,
-      // Keep legacy columns in sync for backward compatibility
-      member_price: basePrice,
-      non_member_price: basePrice,
-      military_price: basePrice,
     };
 
     if (editingId) {
@@ -273,18 +250,18 @@ export function ClassesManager({
   };
 
   const cancelClass = async (id: string) => {
-    // Check for active enrollments before cancelling
-    const { data: activeEnrollments } = await supabase
-      .from("enrollments")
-      .select("id")
+    // Check for active assignments before cancelling
+    const { data: activeAssignments } = await supabase
+      .from("class_assignments")
+      .select("id, swimmer_id, swimmer:swimmers(first_name, last_name, family_id)")
       .eq("class_id", id)
-      .in("status", ["confirmed", "waitlisted"]);
+      .eq("status", "active");
 
-    const enrollmentCount = activeEnrollments?.length ?? 0;
+    const assignmentCount = activeAssignments?.length ?? 0;
 
-    if (enrollmentCount > 0) {
+    if (assignmentCount > 0) {
       const confirmed = window.confirm(
-        `This class has ${enrollmentCount} active enrollment(s). Cancelling will also cancel all associated enrollments. Are you sure you want to proceed?`
+        `This class has ${assignmentCount} active assignment(s). Cancelling will also drop all assigned swimmers. Are you sure you want to proceed?`
       );
       if (!confirmed) return;
     }
@@ -298,36 +275,20 @@ export function ClassesManager({
       return;
     }
 
-    // Cancel all active enrollments for this class and notify parents
-    if (enrollmentCount > 0) {
-      // Fetch full enrollment details for notifications
-      const { data: fullEnrollments } = await supabase
-        .from("enrollments")
-        .select("id, swimmer_id, payment_status, swimmer:swimmers(first_name, last_name, family_id)")
-        .eq("class_id", id)
-        .in("status", ["confirmed", "waitlisted"]);
-
-      const enrollmentIds = (fullEnrollments ?? activeEnrollments!).map((e) => e.id);
-
-      // Update status and payment_status
-      for (const enrollment of fullEnrollments ?? []) {
-        const paymentStatus = enrollment.payment_status === "paid" ? "refund_pending" : "cancelled";
+    // Drop all active assignments for this class and notify parents
+    if (assignmentCount > 0) {
+      for (const assignment of activeAssignments!) {
         await supabase
-          .from("enrollments")
-          .update({
-            status: "cancelled",
-            payment_status: paymentStatus,
-            cancelled_at: new Date().toISOString(),
-            cancellation_reason: "Class cancelled by admin",
-          })
-          .eq("id", enrollment.id);
+          .from("class_assignments")
+          .update({ status: "dropped" })
+          .eq("id", assignment.id);
 
         // Send notification to parent
-        const swimmer = Array.isArray(enrollment.swimmer) ? enrollment.swimmer[0] : enrollment.swimmer;
+        const swimmer = Array.isArray(assignment.swimmer) ? assignment.swimmer[0] : assignment.swimmer;
         if (swimmer?.family_id) {
           await supabase.from("notifications").insert({
             user_id: swimmer.family_id,
-            type: "enrollment_cancelled",
+            type: "class_cancelled",
             title: "Class Cancelled",
             message: `${swimmer.first_name} ${swimmer.last_name}'s class has been cancelled by the administrator.`,
             link: "/dashboard",
@@ -337,7 +298,7 @@ export function ClassesManager({
         }
       }
 
-      toast.success(`Class cancelled. ${enrollmentIds.length} enrollment(s) also cancelled and parents notified.`);
+      toast.success(`Class cancelled. ${assignmentCount} swimmer(s) removed and parents notified.`);
     } else {
       toast.success("Class cancelled.");
     }
@@ -402,7 +363,7 @@ export function ClassesManager({
         <EmptyState
           icon={<BookOpen className="size-10" />}
           title="No classes yet"
-          description="Add your first class to this session to start accepting enrollments."
+          description="Add your first class to this session to start assigning swimmers."
           action={{ label: "Add Class", onClick: openAdd }}
         />
       ) : viewMode === "table" ? (
@@ -417,7 +378,6 @@ export function ClassesManager({
                 <TableHead className="hidden md:table-cell">Instructor</TableHead>
                 <TableHead>Capacity</TableHead>
                 <TableHead className="hidden lg:table-cell">Type</TableHead>
-                <TableHead className="hidden lg:table-cell">Price</TableHead>
                 <TableHead className="w-[60px]" />
               </TableRow>
             </TableHeader>
@@ -446,21 +406,18 @@ export function ClassesManager({
                   <TableCell>
                     <span
                       className={`text-sm font-medium ${
-                        c.enrolled_count >= c.max_capacity
+                        c.assigned_count >= c.max_capacity
                           ? "text-red-600"
-                          : c.enrolled_count >= c.max_capacity * 0.8
+                          : c.assigned_count >= c.max_capacity * 0.8
                             ? "text-orange-600"
                             : ""
                       }`}
                     >
-                      {c.enrolled_count}/{c.max_capacity}
+                      {c.assigned_count}/{c.max_capacity}
                     </span>
                   </TableCell>
                   <TableCell className="hidden text-sm lg:table-cell">
-                    {c.program_type ? formatProgramType(c.program_type) : formatType(c.class_type)}
-                  </TableCell>
-                  <TableCell className="hidden text-sm lg:table-cell">
-                    {formatPrice(c.base_price)}
+                    {formatType(c.class_type)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -541,7 +498,7 @@ export function ClassesManager({
                           <span className="font-medium">
                             L{c.level}
                           </span>{" "}
-                          {c.enrolled_count}/{c.max_capacity}
+                          {c.assigned_count}/{c.max_capacity}
                         </div>
                       ))}
                     </div>
@@ -560,7 +517,6 @@ export function ClassesManager({
         initial={dialogInitial}
         title={dialogTitle}
         instructors={instructors}
-        seasonType={seasonType as "summer_intensive" | "shoulder_spring" | "shoulder_fall"}
         onSave={handleSave}
       />
     </div>

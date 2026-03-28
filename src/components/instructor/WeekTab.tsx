@@ -18,7 +18,7 @@ interface WeekClass {
   max_capacity: number;
   day_of_week: string[];
   session_name: string;
-  enrolled_count: number;
+  assigned_count: number;
 }
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -77,16 +77,16 @@ export function WeekTab({ userId }: { userId: string }) {
       return;
     }
 
-    // Get enrollment counts
+    // Get assignment counts
     const classIds = classData.map((c) => c.id);
-    const { data: enrollments } = await supabase
-      .from("enrollments")
+    const { data: assignments } = await supabase
+      .from("class_assignments")
       .select("class_id")
       .in("class_id", classIds)
-      .eq("status", "confirmed");
+      .eq("status", "active");
 
     const countMap = new Map<string, number>();
-    for (const e of enrollments ?? []) {
+    for (const e of assignments ?? []) {
       countMap.set(e.class_id, (countMap.get(e.class_id) ?? 0) + 1);
     }
 
@@ -94,7 +94,7 @@ export function WeekTab({ userId }: { userId: string }) {
       classData.map((c) => ({
         ...c,
         session_name: sessionMap.get(c.session_id) ?? "",
-        enrolled_count: countMap.get(c.id) ?? 0,
+        assigned_count: countMap.get(c.id) ?? 0,
       }))
     );
 
@@ -206,7 +206,7 @@ export function WeekTab({ userId }: { userId: string }) {
                         {formatTime(cls.start_time)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {cls.enrolled_count}/{cls.max_capacity}
+                        {cls.assigned_count}/{cls.max_capacity}
                       </p>
                     </div>
                   ))}

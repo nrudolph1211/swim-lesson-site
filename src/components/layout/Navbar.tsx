@@ -74,8 +74,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/", label: "Home" },
-    { href: "/book", label: "Book Lessons" },
-    { href: "/events", label: "Camps & Events" },
+    { href: "/schedule", label: "Schedule" },
   ];
 
   if (user) {

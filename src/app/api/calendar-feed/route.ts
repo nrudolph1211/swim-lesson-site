@@ -61,9 +61,9 @@ async function buildParentFeed(
     swimmers.map((s) => [s.id, `${s.first_name} ${s.last_name}`])
   );
 
-  // Get active enrollments
+  // Get active class assignments
   const { data: enrollments } = await supabase
-    .from("enrollments")
+    .from("class_assignments")
     .select(`
       id, swimmer_id,
       class:classes!inner(
@@ -72,7 +72,7 @@ async function buildParentFeed(
       )
     `)
     .in("swimmer_id", swimmerIds)
-    .eq("status", "confirmed");
+    .eq("status", "active");
 
   if (!enrollments?.length) return buildIcsCalendar([]);
 

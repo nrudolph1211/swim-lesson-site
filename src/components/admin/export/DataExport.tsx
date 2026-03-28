@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Loader2, Users, BookOpen, CreditCard, ClipboardCheck, BarChart3 } from "lucide-react";
+import { Download, Loader2, Users, ClipboardCheck, BarChart3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
@@ -33,8 +33,6 @@ export function DataExport() {
   const supabase = createClient();
   const [items, setItems] = useState<ExportItem[]>([
     { key: "swimmers", label: "All Swimmers", icon: <Users className="size-5" />, count: null, loading: true, exporting: false },
-    { key: "enrollments", label: "All Enrollments", icon: <BookOpen className="size-5" />, count: null, loading: true, exporting: false },
-    { key: "payments", label: "All Payments", icon: <CreditCard className="size-5" />, count: null, loading: true, exporting: false },
     { key: "attendance", label: "Attendance Records", icon: <ClipboardCheck className="size-5" />, count: null, loading: true, exporting: false },
     { key: "skills", label: "Skill Records", icon: <BarChart3 className="size-5" />, count: null, loading: true, exporting: false },
   ]);
@@ -44,17 +42,13 @@ export function DataExport() {
   };
 
   const fetchCounts = useCallback(async () => {
-    const [swimmers, enrollments, payments, attendance, skills] = await Promise.all([
+    const [swimmers, attendance, skills] = await Promise.all([
       supabase.from("swimmers").select("id", { count: "exact", head: true }),
-      supabase.from("enrollments").select("id", { count: "exact", head: true }),
-      supabase.from("payments").select("id", { count: "exact", head: true }),
       supabase.from("attendance_records").select("id", { count: "exact", head: true }),
       supabase.from("skill_records").select("id", { count: "exact", head: true }),
     ]);
 
     updateItem("swimmers", { count: swimmers.count ?? 0, loading: false });
-    updateItem("enrollments", { count: enrollments.count ?? 0, loading: false });
-    updateItem("payments", { count: payments.count ?? 0, loading: false });
     updateItem("attendance", { count: attendance.count ?? 0, loading: false });
     updateItem("skills", { count: skills.count ?? 0, loading: false });
   }, [supabase]);
@@ -96,75 +90,6 @@ export function DataExport() {
       toast.error("Failed to export swimmers.");
     }
     updateItem("swimmers", { exporting: false });
-  };
-
-  const exportEnrollments = async () => {
-    updateItem("enrollments", { exporting: true });
-    try {
-      const { data } = await supabase
-        .from("enrollments")
-        .select("id, status, payment_status, makeup_credits, enrolled_at, cancelled_at, swimmer:swimmers(first_name, last_name), class:classes(level, day_of_week, start_time, end_time, class_type, session:sessions(name))")
-        .order("enrolled_at", { ascending: false });
-
-      const rows = (data ?? []).map((e: Record<string, unknown>) => {
-        const swimmer = Array.isArray(e.swimmer) ? e.swimmer[0] : e.swimmer;
-        const cls = Array.isArray(e.class) ? e.class[0] : e.class;
-        const session = cls?.session;
-        const sess = Array.isArray(session) ? session[0] : session;
-        return [
-          e.id as string,
-          swimmer ? `${swimmer.first_name} ${swimmer.last_name}` : "",
-          `L${cls?.level ?? ""}`,
-          (cls?.day_of_week ?? []).join(", "),
-          (cls?.start_time ?? "").slice(0, 5),
-          (cls?.end_time ?? "").slice(0, 5),
-          cls?.class_type ?? "",
-          sess?.name ?? "",
-          e.status as string,
-          e.payment_status as string,
-          String(e.makeup_credits ?? 0),
-          e.enrolled_at as string,
-          (e.cancelled_at as string) ?? "",
-        ];
-      });
-
-      downloadCsv("enrollments.csv", ["ID", "Swimmer", "Level", "Days", "Start", "End", "Type", "Session", "Status", "Payment", "Makeup Credits", "Enrolled At", "Cancelled At"], rows);
-      toast.success(`Exported ${rows.length} enrollments.`);
-    } catch {
-      toast.error("Failed to export enrollments.");
-    }
-    updateItem("enrollments", { exporting: false });
-  };
-
-  const exportPayments = async () => {
-    updateItem("payments", { exporting: true });
-    try {
-      const { data } = await supabase
-        .from("payments")
-        .select("id, amount, status, payment_method, description, created_at, completed_at, stripe_payment_intent_id, family:profiles(full_name)")
-        .order("created_at", { ascending: false });
-
-      const rows = (data ?? []).map((p: Record<string, unknown>) => {
-        const family = Array.isArray(p.family) ? p.family[0] : p.family;
-        return [
-          p.id as string,
-          (family as { full_name: string })?.full_name ?? "",
-          String(p.amount),
-          p.payment_method as string,
-          p.status as string,
-          (p.description as string) ?? "",
-          p.created_at as string,
-          (p.completed_at as string) ?? "",
-          (p.stripe_payment_intent_id as string) ?? "",
-        ];
-      });
-
-      downloadCsv("payments.csv", ["ID", "Parent", "Amount", "Method", "Status", "Description", "Created", "Completed", "Stripe PI"], rows);
-      toast.success(`Exported ${rows.length} payments.`);
-    } catch {
-      toast.error("Failed to export payments.");
-    }
-    updateItem("payments", { exporting: false });
   };
 
   const exportAttendance = async () => {
@@ -231,8 +156,6 @@ export function DataExport() {
 
   const exportFns: Record<string, () => Promise<void>> = {
     swimmers: exportSwimmers,
-    enrollments: exportEnrollments,
-    payments: exportPayments,
     attendance: exportAttendance,
     skills: exportSkills,
   };

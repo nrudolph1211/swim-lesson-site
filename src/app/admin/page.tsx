@@ -7,16 +7,16 @@ import {
   Users,
   BookOpen,
   BarChart3,
-  Clock,
   AlertTriangle,
   ShieldAlert,
-  CreditCard,
   UserPlus,
   FileCheck,
   CalendarPlus,
   Plus,
   CloudOff,
   Trophy,
+  Award,
+  ClipboardList,
 } from "lucide-react";
 import { EnrollmentByLevelChart } from "@/components/admin/charts/EnrollmentByLevelChart";
 import { ScheduleHeatmap } from "@/components/admin/charts/ScheduleHeatmap";
@@ -42,14 +42,13 @@ export default async function AdminDashboardPage() {
     swimmersRes,
     activeSessionsRes,
     classesRes,
-    enrollmentsRes,
-    waitlistedRes,
-    recentEnrollmentsRes,
+    activeInstructorsRes,
+    skillsMasteredRes,
+    classAssignmentsRes,
     recentWaiversRes,
     recentSwimmersRes,
     unsignedWaiverCountRes,
     expiringCertsRes,
-    pendingPaymentsRes,
     pendingPromotionsRes,
   ] = await Promise.all([
     // 1. Active swimmers count
@@ -64,33 +63,29 @@ export default async function AdminDashboardPage() {
       .select("id, name, status")
       .in("status", ["enrollment_open", "in_progress"]),
 
-    // 3. All classes in active sessions (for capacity + heatmap)
+    // 3. All classes in active sessions (for heatmap + total classes metric)
     supabase
       .from("classes")
       .select("id, session_id, max_capacity, level, day_of_week, start_time, is_active, session:sessions!inner(status)")
       .in("session.status", ["enrollment_open", "in_progress"])
       .eq("is_active", true),
 
-    // 4. Confirmed enrollments in active sessions (join through classes)
+    // 4. Active instructors count
     supabase
-      .from("enrollments")
-      .select("id, class_id, status, class:classes!inner(level, session:sessions!inner(status))")
-      .eq("status", "confirmed")
-      .in("class.session.status", ["enrollment_open", "in_progress"]),
+      .from("instructors")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true),
 
-    // 5. Waitlisted enrollments in active sessions
+    // 5. Skills mastered count
     supabase
-      .from("enrollments")
-      .select("id, class_id, class:classes!inner(session:sessions!inner(status))")
-      .eq("status", "waitlisted")
-      .in("class.session.status", ["enrollment_open", "in_progress"]),
+      .from("skill_records")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "mastered"),
 
-    // 6. Recent enrollments
+    // 6. Class assignments count
     supabase
-      .from("enrollments")
-      .select("id, status, enrolled_at, swimmer:swimmers(first_name, last_name), class:classes(level)")
-      .order("enrolled_at", { ascending: false })
-      .limit(10),
+      .from("class_assignments")
+      .select("id, class_id", { count: "exact" }),
 
     // 7. Recent waivers
     supabase
@@ -106,11 +101,11 @@ export default async function AdminDashboardPage() {
       .order("created_at", { ascending: false })
       .limit(5),
 
-    // 9. All confirmed swimmer IDs (for unsigned waiver check)
+    // 9. Active swimmer IDs (for unsigned waiver check)
     supabase
-      .from("enrollments")
-      .select("swimmer_id")
-      .eq("status", "confirmed"),
+      .from("swimmers")
+      .select("id")
+      .eq("is_active", true),
 
     // 10. Expiring instructor certs (within 30 days)
     supabase
@@ -118,14 +113,7 @@ export default async function AdminDashboardPage() {
       .select("id, certifications, profile:profiles(full_name)")
       .eq("is_active", true),
 
-    // 11. Pending payments
-    supabase
-      .from("enrollments")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "confirmed")
-      .eq("payment_status", "pending"),
-
-    // 12. Pending promotions
+    // 11. Pending promotions
     supabase
       .from("promotion_requests")
       .select("id", { count: "exact", head: true })
@@ -134,31 +122,25 @@ export default async function AdminDashboardPage() {
 
   // ── Process metrics ─────────────────────────────────────────
   const activeSwimmers = swimmersRes.count ?? 0;
-  const confirmedEnrollments = enrollmentsRes.data?.length ?? 0;
-  const waitlistedCount = waitlistedRes.data?.length ?? 0;
+  const totalClasses = classesRes.data?.length ?? 0;
+  const activeInstructors = activeInstructorsRes.count ?? 0;
+  const skillsMastered = skillsMasteredRes.count ?? 0;
 
-  const totalCapacity = (classesRes.data ?? []).reduce(
-    (sum, c) => sum + (c.max_capacity ?? 0),
-    0
-  );
-  const occupancyRate =
-    totalCapacity > 0
-      ? Math.round((confirmedEnrollments / totalCapacity) * 100)
-      : 0;
-
-  // ── Enrollment by level ─────────────────────────────────────
-  const enrollmentsByLevel: Record<number, number> = {};
-  for (const e of enrollmentsRes.data ?? []) {
-    const cls = e.class as unknown as { level?: number } | { level?: number }[] | null;
-    const classObj = Array.isArray(cls) ? cls[0] : cls;
-    const level = classObj?.level;
+  // ── Swimmers by level (based on class assignments) ────────
+  const swimmersByLevel: Record<number, number> = {};
+  const assignmentsByClassId: Record<string, number> = {};
+  for (const a of classAssignmentsRes.data ?? []) {
+    assignmentsByClassId[a.class_id] = (assignmentsByClassId[a.class_id] ?? 0) + 1;
+  }
+  for (const cls of classesRes.data ?? []) {
+    const level = cls.level as number;
     if (level) {
-      enrollmentsByLevel[level] = (enrollmentsByLevel[level] ?? 0) + 1;
+      swimmersByLevel[level] = (swimmersByLevel[level] ?? 0) + (assignmentsByClassId[cls.id] ?? 0);
     }
   }
   const levelChartData = [1, 2, 3, 4, 5].map((level) => ({
     level,
-    count: enrollmentsByLevel[level] ?? 0,
+    count: swimmersByLevel[level] ?? 0,
   }));
 
   // ── Schedule heatmap ────────────────────────────────────────
@@ -179,25 +161,12 @@ export default async function AdminDashboardPage() {
   // ── Recent activity ─────────────────────────────────────────
   type Activity = {
     id: string;
-    type: "enrollment" | "waiver" | "swimmer";
+    type: "waiver" | "swimmer";
     description: string;
     timestamp: string;
   };
 
   const activities: Activity[] = [];
-
-  for (const e of recentEnrollmentsRes.data ?? []) {
-    const swimmer = e.swimmer as unknown as { first_name: string; last_name: string } | null;
-    const name = swimmer
-      ? `${swimmer.first_name} ${swimmer.last_name}`
-      : "Unknown";
-    activities.push({
-      id: `e-${e.id}`,
-      type: "enrollment",
-      description: `${name} ${e.status === "confirmed" ? "enrolled" : e.status === "waitlisted" ? "joined waitlist" : "cancelled"}`,
-      timestamp: e.enrolled_at ?? new Date().toISOString(),
-    });
-  }
 
   for (const w of recentWaiversRes.data ?? []) {
     const swimmer = w.swimmer as unknown as { first_name: string; last_name: string } | null;
@@ -227,28 +196,24 @@ export default async function AdminDashboardPage() {
   const recentActivities = activities.slice(0, 10);
 
   // ── Action items ────────────────────────────────────────────
-  // Unsigned waivers: enrolled swimmers without active, unexpired waivers
-  const enrolledSwimmerIds = [
-    ...new Set(
-      (unsignedWaiverCountRes.data ?? []).map(
-        (e: { swimmer_id: string }) => e.swimmer_id
-      )
-    ),
-  ];
+  // Unsigned waivers: active swimmers without active, unexpired waivers
+  const activeSwimmerIds = (unsignedWaiverCountRes.data ?? []).map(
+    (s: { id: string }) => s.id
+  );
 
   let unsignedWaivers = 0;
-  if (enrolledSwimmerIds.length > 0) {
+  if (activeSwimmerIds.length > 0) {
     const { data: activeWaivers } = await supabase
       .from("waivers")
       .select("swimmer_id")
-      .in("swimmer_id", enrolledSwimmerIds)
+      .in("swimmer_id", activeSwimmerIds)
       .eq("is_active", true)
       .gte("expires_at", new Date().toISOString());
 
     const signedSet = new Set(
       (activeWaivers ?? []).map((w: { swimmer_id: string }) => w.swimmer_id)
     );
-    unsignedWaivers = enrolledSwimmerIds.filter(
+    unsignedWaivers = activeSwimmerIds.filter(
       (id: string) => !signedSet.has(id)
     ).length;
   }
@@ -273,15 +238,14 @@ export default async function AdminDashboardPage() {
     }
   }
 
-  // Full classes
-  const fullClasses = (classesRes.data ?? []).filter((cls) => {
-    const enrolled = (enrollmentsRes.data ?? []).filter(
-      (e) => e.class_id === cls.id
-    ).length;
-    return enrolled >= cls.max_capacity;
-  }).length;
+  // Unassigned classes: classes with no assignments
+  const assignedClassIds = new Set(
+    (classAssignmentsRes.data ?? []).map((a: { class_id: string }) => a.class_id)
+  );
+  const unassignedClasses = (classesRes.data ?? []).filter(
+    (cls) => !assignedClassIds.has(cls.id)
+  ).length;
 
-  const pendingPayments = pendingPaymentsRes.count ?? 0;
   const pendingPromotions = pendingPromotionsRes.count ?? 0;
 
   // ── Render ──────────────────────────────────────────────────
@@ -298,22 +262,21 @@ export default async function AdminDashboardPage() {
           href="/admin/swimmers"
         />
         <MetricCard
-          title="Current Enrollments"
-          value={confirmedEnrollments}
+          title="Total Classes"
+          value={totalClasses}
           icon={<BookOpen className="size-4" />}
-          href="/admin/enrollments"
+          href="/admin/sessions"
         />
         <MetricCard
-          title="Occupancy Rate"
-          value={`${occupancyRate}%`}
+          title="Active Instructors"
+          value={activeInstructors}
           icon={<BarChart3 className="size-4" />}
-          subtitle={`${confirmedEnrollments} / ${totalCapacity} spots`}
+          href="/admin/instructors"
         />
         <MetricCard
-          title="Waitlisted"
-          value={waitlistedCount}
-          icon={<Clock className="size-4" />}
-          href="/admin/enrollments"
+          title="Skills Mastered"
+          value={skillsMastered}
+          icon={<Award className="size-4" />}
         />
       </div>
 
@@ -321,7 +284,7 @@ export default async function AdminDashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <h3 className="text-sm font-semibold">Enrollment by Level</h3>
+            <h3 className="text-sm font-semibold">Swimmers by Level</h3>
           </CardHeader>
           <CardContent>
             <EnrollmentByLevelChart data={levelChartData} />
@@ -358,9 +321,6 @@ export default async function AdminDashboardPage() {
                     className="flex items-start gap-3 text-sm"
                   >
                     <div className="mt-0.5 shrink-0">
-                      {activity.type === "enrollment" && (
-                        <BookOpen className="size-3.5 text-primary" />
-                      )}
                       {activity.type === "waiver" && (
                         <FileCheck className="size-3.5 text-green-600" />
                       )}
@@ -403,16 +363,10 @@ export default async function AdminDashboardPage() {
                 href="/admin/instructors"
               />
               <ActionItem
-                icon={<Users className="size-3.5 text-orange-600" />}
-                label="Full classes"
-                count={fullClasses}
+                icon={<ClipboardList className="size-3.5 text-orange-600" />}
+                label="Unassigned classes"
+                count={unassignedClasses}
                 href="/admin/sessions"
-              />
-              <ActionItem
-                icon={<CreditCard className="size-3.5 text-blue-600" />}
-                label="Pending payments"
-                count={pendingPayments}
-                href="/admin/payments"
               />
               <ActionItem
                 icon={<Trophy className="size-3.5 text-green-600" />}

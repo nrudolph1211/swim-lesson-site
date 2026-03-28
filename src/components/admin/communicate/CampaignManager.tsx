@@ -132,11 +132,11 @@ export function CampaignManager() {
   const countRecipients = useCallback(async () => {
     setCountLoading(true);
 
-    let query = supabase.from("enrollments").select("swimmer:swimmers(family_id)", { count: "exact", head: true });
+    let query = supabase.from("class_assignments").select("swimmer:swimmers(family_id)", { count: "exact", head: true });
 
     switch (audienceType) {
       case "all_active":
-        query = query.eq("status", "confirmed");
+        query = query.eq("status", "active");
         break;
       case "by_level": {
         // Join through classes to filter by level
@@ -148,7 +148,7 @@ export function CampaignManager() {
           .eq("is_active", true);
         const lcIds = (levelClassIds ?? []).map((c) => c.id);
         if (lcIds.length > 0) {
-          query = query.in("class_id", lcIds).eq("status", "confirmed");
+          query = query.in("class_id", lcIds).eq("status", "active");
         } else {
           setRecipientCount(0);
           setCountLoading(false);
@@ -166,7 +166,7 @@ export function CampaignManager() {
             .eq("is_active", true);
           const scIds = (sessClassIds ?? []).map((c) => c.id);
           if (scIds.length > 0) {
-            query = query.in("class_id", scIds).eq("status", "confirmed");
+            query = query.in("class_id", scIds).eq("status", "active");
           } else {
             setRecipientCount(0);
             setCountLoading(false);
@@ -177,14 +177,16 @@ export function CampaignManager() {
       }
       case "by_class":
         if (audienceClassId) {
-          query = query.eq("class_id", audienceClassId).eq("status", "confirmed");
+          query = query.eq("class_id", audienceClassId).eq("status", "active");
         }
         break;
       case "waitlisted":
-        query = query.eq("status", "waitlisted");
-        break;
+        // No waitlist in class_assignments, return 0
+        setRecipientCount(0);
+        setCountLoading(false);
+        return;
       case "inactive":
-        query = query.eq("status", "cancelled");
+        query = query.eq("status", "dropped");
         break;
     }
 

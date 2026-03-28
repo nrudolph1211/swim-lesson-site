@@ -78,18 +78,18 @@ export function SwimmersTable() {
 
     const swimmerIds = swimmerData.map((s) => s.id);
 
-    // Fetch waivers and enrollment counts in parallel
-    const [waiverRes, enrollRes] = await Promise.all([
+    // Fetch waivers and assignment counts in parallel
+    const [waiverRes, assignRes] = await Promise.all([
       supabase
         .from("waivers")
         .select("swimmer_id, is_active, expires_at")
         .in("swimmer_id", swimmerIds)
         .eq("is_active", true),
       supabase
-        .from("enrollments")
+        .from("class_assignments")
         .select("swimmer_id")
         .in("swimmer_id", swimmerIds)
-        .eq("status", "confirmed"),
+        .eq("status", "active"),
     ]);
 
     const waiverMap = new Map<string, { is_active: boolean; expires_at: string | null }>();
@@ -98,7 +98,7 @@ export function SwimmersTable() {
     }
 
     const enrollCountMap = new Map<string, number>();
-    for (const e of enrollRes.data ?? []) {
+    for (const e of assignRes.data ?? []) {
       enrollCountMap.set(e.swimmer_id, (enrollCountMap.get(e.swimmer_id) ?? 0) + 1);
     }
 

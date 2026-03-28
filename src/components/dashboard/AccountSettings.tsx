@@ -39,7 +39,6 @@ import {
   Bell,
   Key,
   Users,
-  CreditCard,
   Shield,
   AlertTriangle,
   Loader2,
@@ -102,22 +101,12 @@ export function AccountSettings() {
             <Users className="mr-1.5 size-4" />
             Swimmers
           </TabsTrigger>
-          <TabsTrigger value="payments">
-            <CreditCard className="mr-1.5 size-4" />
-            Payments
-          </TabsTrigger>
-          <TabsTrigger value="waivers">
-            <Shield className="mr-1.5 size-4" />
-            Waivers
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile"><ProfileSection /></TabsContent>
         <TabsContent value="notifications"><NotificationsSection /></TabsContent>
         <TabsContent value="password"><PasswordSection /></TabsContent>
         <TabsContent value="swimmers"><SwimmersSection /></TabsContent>
-        <TabsContent value="payments"><PaymentsSection /></TabsContent>
-        <TabsContent value="waivers"><WaiversSection /></TabsContent>
       </Tabs>
 
       {/* Danger Zone always visible */}
@@ -212,7 +201,7 @@ function ProfileSection() {
             onChange={(e) => setHacMemberId(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            Enter your membership number for member pricing.
+            Enter your membership number if applicable.
           </p>
         </div>
 
@@ -286,7 +275,7 @@ function NotificationsSection() {
           <div>
             <p className="text-sm font-medium">Email Notifications</p>
             <p className="text-xs text-muted-foreground">
-              Enrollment confirmations, lesson reminders, weather alerts
+              Class schedule updates, lesson reminders, weather alerts
             </p>
           </div>
           <Switch

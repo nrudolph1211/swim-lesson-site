@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import { EventsPageClient } from "@/components/events/EventsPageClient";
-
-export const metadata: Metadata = { title: "Events" };
+import { redirect } from "next/navigation";
 
 export default function EventsPage() {
-  return <EventsPageClient />;
+  redirect("/");
 }

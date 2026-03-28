@@ -33,19 +33,14 @@ import {
 } from "@/components/ui/table";
 import {
   Building2,
-  DollarSign,
   Users,
   ShieldCheck,
   FileText,
   Bell,
-  Gift,
-  Code,
   UserCog,
   Loader2,
   Save,
   AlertTriangle,
-  Copy,
-  Check,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -62,15 +57,6 @@ const DEFAULTS: Record<string, unknown> = {
   business_address: { street: "", city: "", state: "", zip: "" },
   pool_season_start: 4,
   pool_season_end: 10,
-  member_discount_pct: 15,
-  military_discount_pct: 20,
-  drop_in_surcharge_pct: 25,
-  sibling_discount_2nd_pct: 10,
-  sibling_discount_3rd_pct: 15,
-  early_bird_discount_pct: 15,
-  multi_session_discount_pct: 10,
-  max_discount_stack: 2,
-  annual_registration_fee: 30,
   default_capacity_l1: 4,
   default_capacity_l2: 5,
   default_capacity_l3: 6,
@@ -83,11 +69,8 @@ const DEFAULTS: Record<string, unknown> = {
   late_enrollment_allowed: true,
   waiver_version: "1.0",
   waiver_content: "",
-  referral_program_enabled: true,
-  referral_credit_amount: 25,
   google_review_url: "",
   facebook_review_url: "",
-  embed_widget_enabled: false,
 };
 
 const MONTHS = [
@@ -187,13 +170,10 @@ export function AdminSettings() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="general"><Building2 className="mr-1 size-3.5" />General</TabsTrigger>
-          <TabsTrigger value="pricing"><DollarSign className="mr-1 size-3.5" />Pricing</TabsTrigger>
           <TabsTrigger value="classes"><Users className="mr-1 size-3.5" />Classes</TabsTrigger>
           <TabsTrigger value="policies"><ShieldCheck className="mr-1 size-3.5" />Policies</TabsTrigger>
           <TabsTrigger value="waiver"><FileText className="mr-1 size-3.5" />Waiver</TabsTrigger>
           <TabsTrigger value="notifications"><Bell className="mr-1 size-3.5" />Notifications</TabsTrigger>
-          <TabsTrigger value="referrals"><Gift className="mr-1 size-3.5" />Referrals</TabsTrigger>
-          <TabsTrigger value="embed"><Code className="mr-1 size-3.5" />Embed</TabsTrigger>
           <TabsTrigger value="admins"><UserCog className="mr-1 size-3.5" />Admins</TabsTrigger>
         </TabsList>
 
@@ -279,63 +259,7 @@ export function AdminSettings() {
           </Card>
         </TabsContent>
 
-        {/* TAB 2 — PRICING */}
-        <TabsContent value="pricing">
-          <Card>
-            <CardHeader><h2 className="font-heading text-lg font-semibold">Pricing & Discounts</h2></CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                These percentages are used by the booking flow to calculate prices.
-              </p>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Member Discount %</Label>
-                  <Input type="number" min={0} max={100} value={getNum("member_discount_pct")} onChange={(e) => set("member_discount_pct", Number(e.target.value))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Military Discount %</Label>
-                  <Input type="number" min={0} max={100} value={getNum("military_discount_pct")} onChange={(e) => set("military_discount_pct", Number(e.target.value))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Drop-in Surcharge %</Label>
-                  <Input type="number" min={0} max={100} value={getNum("drop_in_surcharge_pct")} onChange={(e) => set("drop_in_surcharge_pct", Number(e.target.value))} />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Sibling Discount (2nd) %</Label>
-                  <Input type="number" min={0} max={100} value={getNum("sibling_discount_2nd_pct")} onChange={(e) => set("sibling_discount_2nd_pct", Number(e.target.value))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Sibling Discount (3rd+) %</Label>
-                  <Input type="number" min={0} max={100} value={getNum("sibling_discount_3rd_pct")} onChange={(e) => set("sibling_discount_3rd_pct", Number(e.target.value))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Early-Bird Discount %</Label>
-                  <Input type="number" min={0} max={100} value={getNum("early_bird_discount_pct")} onChange={(e) => set("early_bird_discount_pct", Number(e.target.value))} />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Multi-Session Discount %</Label>
-                  <Input type="number" min={0} max={100} value={getNum("multi_session_discount_pct")} onChange={(e) => set("multi_session_discount_pct", Number(e.target.value))} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Max Discount Stack</Label>
-                  <Input type="number" min={1} max={10} value={getNum("max_discount_stack")} onChange={(e) => set("max_discount_stack", Number(e.target.value))} />
-                  <p className="text-xs text-muted-foreground">Max number of discounts that can be combined.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Annual Registration Fee ($)</Label>
-                  <Input type="number" min={0} max={500} step="0.01" value={getNum("annual_registration_fee")} onChange={(e) => set("annual_registration_fee", Number(e.target.value))} />
-                </div>
-              </div>
-              <SaveButton saving={saving} onClick={() => saveKeys(["member_discount_pct", "military_discount_pct", "drop_in_surcharge_pct", "sibling_discount_2nd_pct", "sibling_discount_3rd_pct", "early_bird_discount_pct", "multi_session_discount_pct", "max_discount_stack", "annual_registration_fee"])} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* TAB 3 — CLASS DEFAULTS */}
+        {/* TAB 2 — CLASS DEFAULTS */}
         <TabsContent value="classes">
           <Card>
             <CardHeader><h2 className="font-heading text-lg font-semibold">Default Class Capacity by Level</h2></CardHeader>
@@ -411,7 +335,7 @@ export function AdminSettings() {
                 <div className="space-y-2">
                   <Label>Cancellation Notice (hours)</Label>
                   <Input type="number" min={0} max={168} value={getNum("cancellation_notice_hours")} onChange={(e) => set("cancellation_notice_hours", Number(e.target.value))} />
-                  <p className="text-xs text-muted-foreground">Hours before session start for full refund.</p>
+                  <p className="text-xs text-muted-foreground">Hours of notice required before session start.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Waiver Validity (months)</Label>
@@ -440,34 +364,7 @@ export function AdminSettings() {
           <NotificationTemplatesTab settings={settings} set={set} getStr={getStr} saveKeys={saveKeys} saving={saving} />
         </TabsContent>
 
-        {/* TAB 7 — REFERRALS */}
-        <TabsContent value="referrals">
-          <Card>
-            <CardHeader><h2 className="font-heading text-lg font-semibold">Referral Program</h2></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg border p-4">
-                <div>
-                  <p className="text-sm font-medium">Enable Referral Program</p>
-                  <p className="text-xs text-muted-foreground">Show referral codes on parent dashboards.</p>
-                </div>
-                <Switch checked={getBool("referral_program_enabled")} onCheckedChange={(v) => set("referral_program_enabled", v)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Credit Amount ($)</Label>
-                <Input type="number" min={0} max={100} value={getNum("referral_credit_amount")} onChange={(e) => set("referral_credit_amount", Number(e.target.value))} />
-                <p className="text-xs text-muted-foreground">Both referrer and referred receive this amount when the referred family pays for their first enrollment.</p>
-              </div>
-              <SaveButton saving={saving} onClick={() => saveKeys(["referral_program_enabled", "referral_credit_amount"])} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* TAB 8 — EMBED */}
-        <TabsContent value="embed">
-          <EmbedTab settings={settings} set={set} getBool={getBool} saveKeys={saveKeys} saving={saving} />
-        </TabsContent>
-
-        {/* TAB 9 — ADMINS */}
+        {/* TAB 7 — ADMINS */}
         <TabsContent value="admins">
           <AdminManagementTab />
         </TabsContent>
@@ -653,74 +550,6 @@ function NotificationTemplatesTab({
           </div>
         ))}
         <SaveButton saving={saving} onClick={() => saveKeys(allKeys)} />
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ── EMBED TAB ── */
-function EmbedTab({
-  settings, set, getBool, saveKeys, saving,
-}: {
-  settings: Record<string, unknown>;
-  set: (k: string, v: unknown) => void;
-  getBool: (k: string) => boolean;
-  saveKeys: (keys: string[]) => Promise<void>;
-  saving: boolean;
-}) {
-  const [copied, setCopied] = useState(false);
-  const enabled = getBool("embed_widget_enabled");
-
-  const embedCode = `<iframe
-  src="${typeof window !== "undefined" ? window.location.origin : ""}/book?embed=true"
-  width="100%"
-  height="800"
-  frameborder="0"
-  style="border: none; border-radius: 8px;"
-  title="HAC Swim Lessons Booking"
-></iframe>`;
-
-  const copyCode = () => {
-    navigator.clipboard.writeText(embedCode);
-    setCopied(true);
-    toast.success("Embed code copied!");
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <Card>
-      <CardHeader><h2 className="font-heading text-lg font-semibold">Embed Widget</h2></CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div>
-            <p className="text-sm font-medium">Enable Embed Widget</p>
-            <p className="text-xs text-muted-foreground">Allow the booking page to be embedded on external websites.</p>
-          </div>
-          <Switch checked={enabled} onCheckedChange={(v) => set("embed_widget_enabled", v)} />
-        </div>
-
-        {enabled && (
-          <>
-            <div className="space-y-2">
-              <Label>Embed Code</Label>
-              <div className="relative">
-                <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{embedCode}</pre>
-                <Button variant="outline" size="sm" className="absolute right-2 top-2" onClick={copyCode}>
-                  {copied ? <Check className="mr-1 size-3" /> : <Copy className="mr-1 size-3" />}
-                  {copied ? "Copied" : "Copy"}
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Preview</Label>
-              <div className="overflow-hidden rounded-lg border" style={{ height: 300 }}>
-                <iframe src="/book?embed=true" width="100%" height="300" style={{ border: "none" }} title="Embed Preview" />
-              </div>
-            </div>
-          </>
-        )}
-
-        <SaveButton saving={saving} onClick={() => saveKeys(["embed_widget_enabled"])} />
       </CardContent>
     </Card>
   );

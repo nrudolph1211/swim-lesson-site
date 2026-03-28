@@ -132,10 +132,10 @@ export function useClasses() {
       let countMap = new Map<string, number>();
       if (classIds.length > 0) {
         const { data: counts } = await supabase
-          .from("enrollments")
+          .from("class_assignments")
           .select("class_id")
           .in("class_id", classIds)
-          .eq("status", "confirmed");
+          .eq("status", "active");
 
         if (counts) {
           countMap = new Map<string, number>();

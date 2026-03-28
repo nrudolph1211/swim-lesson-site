@@ -154,12 +154,12 @@ export function CancellationManager() {
         (existingCancellations ?? []).map((c) => c.class_id)
       );
 
-      // Get enrollment data
+      // Get assignment data
       const { data: enrollments } = await supabase
-        .from("enrollments")
+        .from("class_assignments")
         .select("id, class_id, swimmer_id, swimmer:swimmers(family_id)")
         .in("class_id", classIds)
-        .eq("status", "confirmed");
+        .eq("status", "active");
 
       // Build per-class enrollment info
       const classEnrollments = new Map<string, {
@@ -348,26 +348,7 @@ export function CancellationManager() {
         .insert(cancellationInserts);
       if (cancelError) throw cancelError;
 
-      // 2. Increment makeup_credits on each enrollment (respect limit)
-      const allEnrollmentIds = selectedClassList.flatMap((c) => c.enrollment_ids);
-
-      if (allEnrollmentIds.length > 0) {
-        // Fetch current credits
-        const { data: enrollmentData } = await supabase
-          .from("enrollments")
-          .select("id, makeup_credits")
-          .in("id", allEnrollmentIds);
-
-        for (const e of enrollmentData ?? []) {
-          const currentCredits = e.makeup_credits ?? 0;
-          if (currentCredits < makeupLimit) {
-            await supabase
-              .from("enrollments")
-              .update({ makeup_credits: currentCredits + 1 })
-              .eq("id", e.id);
-          }
-        }
-      }
+      // 2. Makeup credits — skipped (class_assignments does not track makeup credits)
 
       // 3. Notify affected parents (deduplicate)
       const parentIds = [

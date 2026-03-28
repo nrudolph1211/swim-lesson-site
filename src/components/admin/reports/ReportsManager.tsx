@@ -158,11 +158,11 @@ export function ReportsManager() {
     });
     setPayments(mappedPayments);
 
-    // ── Enrollments by level ──
+    // ── Assignments by level ──
     const { data: enrollData } = await supabase
-      .from("enrollments")
+      .from("class_assignments")
       .select("class:classes(level)")
-      .eq("status", "confirmed");
+      .eq("status", "active");
 
     const levelCounts: Record<number, number> = {};
     for (const e of enrollData ?? []) {
@@ -228,10 +228,10 @@ export function ReportsManager() {
       if (classIds?.length) {
         const ids = classIds.map((c) => c.id);
         const { count: enrollCount } = await supabase
-          .from("enrollments")
+          .from("class_assignments")
           .select("id", { count: "exact", head: true })
           .in("class_id", ids)
-          .eq("status", "confirmed");
+          .eq("status", "active");
         studentCount = enrollCount ?? 0;
 
         // Attendance rate for this instructor's classes
@@ -284,10 +284,10 @@ export function ReportsManager() {
       }
 
       const { count } = await supabase
-        .from("enrollments")
+        .from("class_assignments")
         .select("id", { count: "exact", head: true })
         .eq("class_id", cls.id)
-        .eq("status", "confirmed");
+        .eq("status", "active");
 
       for (const day of (cls.day_of_week ?? []) as string[]) {
         const key = `${day}-${hour}`;

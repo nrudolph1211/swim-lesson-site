@@ -2,17 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Users, BookOpen, Clock, Trophy } from "lucide-react";
-import { toast } from "sonner";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Users } from "lucide-react";
 import { useSwimmers } from "@/hooks/useSwimmers";
-import { useEnrollments } from "@/hooks/useEnrollments";
+import { useClassAssignments } from "@/hooks/useClassAssignments";
+import { useAuthContext } from "@/components/auth/AuthProvider";
 import {
   SwimmerCard,
   AddSwimmerDialog,
-  EnrollmentCard,
   WeeklySchedule,
-  ReferralSection,
 } from "@/components/dashboard";
 import { SwimmerProgress } from "@/components/dashboard/SwimmerProgress";
 import { DashboardSkeleton } from "@/components/ui/skeletons";
@@ -21,33 +18,20 @@ import { EmptyState } from "@/components/ui/empty-state";
 export function DashboardClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { swimmers, loading: swimmersLoading, addSwimmer, getWaiverStatus } = useSwimmers();
-  const {
-    enrollments,
-    active,
-    waitlisted,
-    past,
-    loading: enrollmentsLoading,
-    cancelEnrollment,
-    fetchEnrollments,
-  } = useEnrollments();
-  const [enrollmentTab, setEnrollmentTab] = useState("active");
+  const { user } = useAuthContext();
+  const { swimmers, loading: swimmersLoading, addSwimmer } = useSwimmers();
+  const { active: activeAssignments, loading: assignmentsLoading } = useClassAssignments(user?.id);
   const [progressSwimmerId, setProgressSwimmerId] = useState<string | null>(null);
 
-  // Handle payment return toast and swimmer progress param
+  // Handle swimmer progress param
   useEffect(() => {
-    const payment = searchParams.get("payment");
-    if (payment === "success") {
-      toast.success("Payment successful! Your enrollment is confirmed.");
-      router.replace("/dashboard");
-    }
     const swimmerId = searchParams.get("swimmer");
     if (swimmerId) {
       setProgressSwimmerId(swimmerId);
     }
-  }, [searchParams, router]);
+  }, [searchParams]);
 
-  const loading = swimmersLoading || enrollmentsLoading;
+  const loading = swimmersLoading || assignmentsLoading;
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -87,7 +71,7 @@ export function DashboardClient() {
           <EmptyState
             icon={<Users className="size-10" />}
             title="No swimmers yet"
-            description="Add your first swimmer to get started with booking lessons."
+            description="Add your first swimmer to get started."
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -95,83 +79,31 @@ export function DashboardClient() {
               <SwimmerCard
                 key={swimmer.id}
                 swimmer={swimmer}
-                waiverStatus={getWaiverStatus(swimmer.id)}
               />
             ))}
           </div>
         )}
       </section>
 
-      {/* Upcoming Lessons */}
+      {/* Class Schedule */}
       <section>
-        <WeeklySchedule enrollments={enrollments} />
+        <WeeklySchedule assignments={activeAssignments} />
       </section>
 
-      {/* My Enrollments */}
-      <section>
-        <h2 className="mb-4 font-heading text-lg font-semibold">My Enrollments</h2>
-        <Tabs value={enrollmentTab} onValueChange={setEnrollmentTab}>
-          <TabsList>
-            <TabsTrigger value="active">Active ({active.length})</TabsTrigger>
-            <TabsTrigger value="waitlisted">Waitlisted ({waitlisted.length})</TabsTrigger>
-            <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="active" className="mt-4">
-            {active.length === 0 ? (
-              <EmptyState
-                icon={<BookOpen className="size-10" />}
-                title="No active enrollments"
-                description="Browse available classes and enroll your swimmer."
-                action={{ label: "Book a Lesson", onClick: () => router.push("/book") }}
-              />
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {active.map((e) => (
-                  <EnrollmentCard key={e.id} enrollment={e} onCancel={cancelEnrollment} onRefresh={fetchEnrollments} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="waitlisted" className="mt-4">
-            {waitlisted.length === 0 ? (
-              <EmptyState
-                icon={<Clock className="size-10" />}
-                title="No waitlisted enrollments"
-                description="You'll see waitlisted classes here if a class is full."
-              />
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {waitlisted.map((e) => (
-                  <EnrollmentCard key={e.id} enrollment={e} onCancel={cancelEnrollment} onRefresh={fetchEnrollments} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="past" className="mt-4">
-            {past.length === 0 ? (
-              <EmptyState
-                icon={<Trophy className="size-10" />}
-                title="No past enrollments"
-                description="Completed lessons will appear here."
-              />
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {past.map((e) => (
-                  <EnrollmentCard key={e.id} enrollment={e} onCancel={cancelEnrollment} onRefresh={fetchEnrollments} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </section>
-
-      {/* Referral Section */}
-      <section>
-        <ReferralSection />
-      </section>
+      {/* Empty state for no assignments */}
+      {activeAssignments.length === 0 && swimmers.length > 0 && (
+        <div className="rounded-lg border bg-muted/30 p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Your swimmers haven&apos;t been assigned to classes yet. Contact HAC to get started with lessons.
+          </p>
+          <a
+            href="mailto:craig@heightsathleticclub.com"
+            className="mt-2 inline-block text-sm font-medium text-primary hover:underline"
+          >
+            craig@heightsathleticclub.com
+          </a>
+        </div>
+      )}
     </div>
   );
 }

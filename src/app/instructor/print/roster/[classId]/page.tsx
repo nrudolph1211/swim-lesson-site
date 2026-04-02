@@ -11,7 +11,7 @@ export default async function PrintRosterPage({
 }) {
   const { user, profile } = await getUser();
   if (!user) redirect("/login");
-  if (profile?.role !== "instructor" && profile?.role !== "admin") redirect("/dashboard");
+  if (profile?.role !== "instructor" && profile?.role !== "admin") redirect("/login");
 
   const { classId } = await params;
   return <PrintRoster classId={classId} />;

@@ -10,20 +10,15 @@ const labelMap: Record<string, string> = {
   sessions: "Sessions",
   swimmers: "Swimmers",
   instructors: "Instructors",
-  enrollments: "Enrollments",
-  events: "Events",
+  assignments: "Assignments",
   promotions: "Promotions",
-  reports: "Reports",
-  surveys: "Surveys",
   export: "Data Export",
   communicate: "Communications",
-  waivers: "Waivers",
   cancellations: "Cancellations",
   payroll: "Payroll",
-  payments: "Payments",
-  referrals: "Referrals",
   settings: "Settings",
   classes: "Classes",
+  print: "Print",
 };
 
 export function AdminBreadcrumbs() {

@@ -127,42 +127,10 @@ export function enrollmentConfirmedEmail(data: {
       <tr><td style="padding:8px 0;font-weight:600">Session</td><td style="padding:8px 0">${data.sessionName}</td></tr>
     </table>
     <p><strong>What to bring:</strong> Swimsuit, towel, goggles, and sunscreen. Arrive 5 minutes early for the first lesson.</p>
-    <p style="color:#b45309;font-weight:500">Reminder: Please ensure your waiver is signed before the first class.</p>
-    ${btn("View Dashboard", `${SITE_URL}/dashboard`)}
+    ${btn("Visit HAC Swim", SITE_URL)}
   `;
   return {
     subject: `Enrollment Confirmed: ${data.swimmerName} — Level ${data.level}`,
-    html: brandedHtml(body),
-  };
-}
-
-export function bookingReceiptEmail(data: {
-  parentName: string;
-  swimmerName: string;
-  amount: string;
-  method: string;
-  date: string;
-  level: number;
-  levelName: string;
-  dayOfWeek: string;
-  startTime: string;
-  sessionName: string;
-}) {
-  const body = `
-    <h2 style="margin:0 0 8px;color:#1B4F72">Payment Receipt</h2>
-    <p>Hi ${data.parentName},</p>
-    <p>We've received your payment. Here are the details:</p>
-    <table style="width:100%;border-collapse:collapse;margin:16px 0">
-      <tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-weight:600;width:120px">Amount</td><td style="padding:8px 0;border-bottom:1px solid #eee;font-size:18px;font-weight:700">${data.amount}</td></tr>
-      <tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-weight:600">Method</td><td style="padding:8px 0;border-bottom:1px solid #eee">${data.method}</td></tr>
-      <tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-weight:600">Date</td><td style="padding:8px 0;border-bottom:1px solid #eee">${data.date}</td></tr>
-      <tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-weight:600">Swimmer</td><td style="padding:8px 0;border-bottom:1px solid #eee">${data.swimmerName}</td></tr>
-      <tr><td style="padding:8px 0;font-weight:600">Class</td><td style="padding:8px 0">L${data.level}: ${data.levelName} — ${data.dayOfWeek} ${data.startTime} (${data.sessionName})</td></tr>
-    </table>
-    ${btn("View Dashboard", `${SITE_URL}/dashboard`)}
-  `;
-  return {
-    subject: `Payment Receipt — $${data.amount}`,
     html: brandedHtml(body),
   };
 }
@@ -185,29 +153,10 @@ export function weatherCancellationEmail(data: {
       <p style="margin:0;font-weight:600;color:#92400e">Make-Up Credit Issued</p>
       <p style="margin:4px 0 0;color:#78350f">You now have <strong>${data.makeupCredits}</strong> make-up credit${data.makeupCredits !== 1 ? "s" : ""} available. Use them to attend another class at the same level before the end of the session.</p>
     </div>
-    ${btn("Book Make-Up Class", `${SITE_URL}/dashboard`)}
+    ${btn("Visit HAC Swim", SITE_URL)}
   `;
   return {
     subject: `Class Cancelled — ${data.date} (${data.reason})`,
-    html: brandedHtml(body),
-  };
-}
-
-export function waiverExpiringEmail(data: {
-  parentName: string;
-  swimmerName: string;
-  expiryDate: string;
-  swimmerId: string;
-}) {
-  const body = `
-    <h2 style="margin:0 0 8px;color:#b45309">Waiver Expiring Soon</h2>
-    <p>Hi ${data.parentName},</p>
-    <p>The liability waiver for <strong>${data.swimmerName}</strong> will expire on <strong>${data.expiryDate}</strong>.</p>
-    <p>Please renew it before the next class to avoid any interruptions.</p>
-    ${btn("Sign Waiver", `${SITE_URL}/waiver/${data.swimmerId}`)}
-  `;
-  return {
-    subject: `Waiver Expiring: ${data.swimmerName} — ${data.expiryDate}`,
     html: brandedHtml(body),
   };
 }
@@ -231,8 +180,8 @@ export function waitlistPromotedEmail(data: {
       <tr><td style="padding:8px 0;border-bottom:1px solid #eee;font-weight:600">Time</td><td style="padding:8px 0;border-bottom:1px solid #eee">${data.startTime}</td></tr>
       <tr><td style="padding:8px 0;font-weight:600">Session</td><td style="padding:8px 0">${data.sessionName}</td></tr>
     </table>
-    <p>Your enrollment is now confirmed. Please complete payment if you haven't already.</p>
-    ${btn("View Dashboard", `${SITE_URL}/dashboard`)}
+    <p>Your enrollment is now confirmed.</p>
+    ${btn("Visit HAC Swim", SITE_URL)}
   `;
   return {
     subject: `Waitlist Update: ${data.swimmerName} is enrolled!`,
@@ -260,7 +209,7 @@ export function lessonReminderEmail(data: {
       <tr><td style="padding:8px 0;font-weight:600">Instructor</td><td style="padding:8px 0">${data.instructorName}</td></tr>
     </table>
     <p><strong>What to bring:</strong> Swimsuit, towel, goggles, and sunscreen. Arrive 5 minutes early.</p>
-    ${btn("View Schedule", `${SITE_URL}/dashboard`)}
+    ${btn("Visit HAC Swim", SITE_URL)}
   `;
   return {
     subject: `Swim Lesson Tomorrow: ${data.swimmerName} — ${data.startTime}`,
@@ -286,7 +235,7 @@ export function levelPromotionEmail(data: {
       <p style="margin:4px 0 0;color:#047857">${data.toLevelName}</p>
     </div>
     <p>You can view ${data.swimmerName}'s progress report and skills breakdown on the dashboard.</p>
-    ${btn("View Progress", `${SITE_URL}/dashboard?swimmer=${data.swimmerId}`)}
+    ${btn("Visit HAC Swim", SITE_URL)}
   `;
   return {
     subject: `${data.swimmerName} Promoted to Level ${data.toLevel}! 🎉`,

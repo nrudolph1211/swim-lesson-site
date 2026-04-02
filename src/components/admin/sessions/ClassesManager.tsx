@@ -291,7 +291,7 @@ export function ClassesManager({
             type: "class_cancelled",
             title: "Class Cancelled",
             message: `${swimmer.first_name} ${swimmer.last_name}'s class has been cancelled by the administrator.`,
-            link: "/dashboard",
+            link: "/admin/sessions",
             read: false,
             email_sent: false,
           });

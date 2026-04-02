@@ -3,7 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   sendNotificationEmail,
   enrollmentConfirmedEmail,
-  weatherCancellationEmail,
   waitlistPromotedEmail,
   levelPromotionEmail,
 } from "@/lib/email";
@@ -35,7 +34,7 @@ export async function POST(request: Request) {
           type: "enrollment_confirmed",
           title: "Enrollment Confirmed",
           message: `${swimmerName} is enrolled in L${level} (${dayOfWeek} ${startTime}).`,
-          link: "/dashboard",
+          link: "/admin",
           read: false,
           email_sent: false,
         });
@@ -63,7 +62,7 @@ export async function POST(request: Request) {
           type: "enrollment_cancelled",
           title: "Enrollment Cancelled",
           message: `${swimmerName}'s L${level} class (${dayOfWeek} ${startTime}) has been cancelled.`,
-          link: "/dashboard",
+          link: "/admin",
           read: false,
           email_sent: false,
         });
@@ -79,7 +78,7 @@ export async function POST(request: Request) {
           type: "waitlist_promoted",
           title: "Moved off Waitlist!",
           message: `A spot opened up — ${swimmerName} is now enrolled in L${level} (${dayOfWeek} ${startTime}).`,
-          link: "/dashboard",
+          link: "/admin",
           read: false,
           email_sent: false,
         });
@@ -106,7 +105,7 @@ export async function POST(request: Request) {
           type: "level_promotion",
           title: `${swimmerName} Promoted to Level ${toLevel}!`,
           message: `Congratulations! ${swimmerName} has advanced from Level ${fromLevel} to Level ${toLevel}: ${getLevelName(toLevel)}.`,
-          link: `/dashboard?swimmer=${swimmerId}`,
+          link: `/admin/swimmers`,
           read: false,
           email_sent: false,
         });
@@ -132,7 +131,7 @@ export async function POST(request: Request) {
           type: "makeup_credit",
           title: "Make-Up Credit Issued",
           message: `${swimmerName} received a make-up credit. You now have ${credits} credit${credits !== 1 ? "s" : ""} available.`,
-          link: "/dashboard",
+          link: "/admin",
           read: false,
           email_sent: false,
         });

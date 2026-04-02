@@ -361,7 +361,7 @@ export function CancellationManager() {
           type: "weather_cancellation" as const,
           title: "Class Cancelled",
           message: `Classes on ${format(parseISO(selectedDate), "EEEE, MMMM d")} have been cancelled due to ${finalReason.toLowerCase()}. A make-up credit has been added to your account.`,
-          link: "/dashboard",
+          link: "/admin/cancellations",
         }));
 
         await supabase.from("notifications").insert(notifications);

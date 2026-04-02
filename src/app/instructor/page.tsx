@@ -14,7 +14,7 @@ export default async function InstructorPage() {
   }
 
   if (profile?.role !== "instructor" && profile?.role !== "admin") {
-    redirect("/dashboard");
+    redirect("/login");
   }
 
   return (

@@ -218,7 +218,7 @@ export function PromotionsManager() {
           type: "level_promotion",
           title: "Level Promotion!",
           message: `${req.swimmer_name} has been promoted from Level ${req.from_level} (${getLevelName(req.from_level)}) to Level ${req.to_level} (${getLevelName(req.to_level)})! Congratulations!`,
-          link: `/dashboard?swimmer=${req.swimmer_id}`,
+          link: `/admin/swimmers`,
         });
       }
 

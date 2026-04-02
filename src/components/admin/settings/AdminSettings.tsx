@@ -64,8 +64,6 @@ const DEFAULTS: Record<string, unknown> = {
   makeup_expiry: "end_of_session",
   cancellation_notice_hours: 24,
   late_enrollment_allowed: true,
-  google_review_url: "",
-  facebook_review_url: "",
 };
 
 const MONTHS = [
@@ -238,17 +236,7 @@ export function AdminSettings() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Google Review URL</Label>
-                  <Input value={getStr("google_review_url")} onChange={(e) => set("google_review_url", e.target.value)} placeholder="https://g.page/..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>Facebook Review URL</Label>
-                  <Input value={getStr("facebook_review_url")} onChange={(e) => set("facebook_review_url", e.target.value)} placeholder="https://facebook.com/..." />
-                </div>
-              </div>
-              <SaveButton saving={saving} onClick={() => saveKeys(["business_name", "business_email", "business_phone", "business_address", "pool_season_start", "pool_season_end", "google_review_url", "facebook_review_url"])} />
+              <SaveButton saving={saving} onClick={() => saveKeys(["business_name", "business_email", "business_phone", "business_address", "pool_season_start", "pool_season_end"])} />
             </CardContent>
           </Card>
         </TabsContent>

@@ -7,7 +7,7 @@ export const metadata = { title: "Print Session Overview" };
 export default async function PrintSessionPage() {
   const { user, profile } = await getUser();
   if (!user) redirect("/login");
-  if (profile?.role !== "admin") redirect("/dashboard");
+  if (profile?.role !== "admin") redirect("/login");
 
   return <PrintSession />;
 }

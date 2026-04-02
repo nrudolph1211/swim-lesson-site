@@ -62,13 +62,11 @@ export function DataExport() {
     try {
       const { data } = await supabase
         .from("swimmers")
-        .select("first_name, last_name, date_of_birth, current_level, is_active, medical_notes, emergency_contact_name, emergency_contact_phone, family:profiles(full_name, phone), waivers(is_active, expires_at)")
+        .select("first_name, last_name, date_of_birth, current_level, is_active, medical_notes, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, family:profiles!family_id(full_name, phone)")
         .order("last_name");
 
       const rows = (data ?? []).map((s: Record<string, unknown>) => {
         const family = Array.isArray(s.family) ? s.family[0] : s.family;
-        const waivers = (s.waivers ?? []) as { is_active: boolean; expires_at: string }[];
-        const activeWaiver = waivers.find((w) => w.is_active && new Date(w.expires_at) > new Date());
         return [
           s.first_name as string,
           s.last_name as string,
@@ -77,14 +75,14 @@ export function DataExport() {
           s.is_active ? "Active" : "Inactive",
           (family as { full_name: string })?.full_name ?? "",
           (family as { phone: string })?.phone ?? "",
-          activeWaiver ? "Valid" : "Missing/Expired",
           (s.medical_notes as string) ?? "",
           (s.emergency_contact_name as string) ?? "",
           (s.emergency_contact_phone as string) ?? "",
+          (s.emergency_contact_relationship as string) ?? "",
         ];
       });
 
-      downloadCsv("swimmers.csv", ["First Name", "Last Name", "DOB", "Level", "Status", "Parent Name", "Parent Phone", "Waiver", "Medical Notes", "Emergency Contact", "Emergency Phone"], rows);
+      downloadCsv("swimmers.csv", ["First Name", "Last Name", "DOB", "Level", "Status", "Parent Name", "Parent Phone", "Medical Notes", "Emergency Contact", "Emergency Phone", "EC Relationship"], rows);
       toast.success(`Exported ${rows.length} swimmers.`);
     } catch {
       toast.error("Failed to export swimmers.");
@@ -97,7 +95,7 @@ export function DataExport() {
     try {
       const { data } = await supabase
         .from("attendance_records")
-        .select("class_date, status, recorded_at, enrollment:enrollments(swimmer:swimmers(first_name, last_name), class:classes(level, start_time, day_of_week))")
+        .select("class_date, status, recorded_at, enrollment:class_assignments(swimmer:swimmers(first_name, last_name), class:classes(level, start_time, day_of_week))")
         .order("class_date", { ascending: false });
 
       const rows = (data ?? []).map((a: Record<string, unknown>) => {

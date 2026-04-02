@@ -7,7 +7,7 @@ export const metadata = { title: "Print Schedule" };
 export default async function PrintSchedulePage() {
   const { user, profile } = await getUser();
   if (!user) redirect("/login");
-  if (profile?.role !== "instructor" && profile?.role !== "admin") redirect("/dashboard");
+  if (profile?.role !== "instructor" && profile?.role !== "admin") redirect("/login");
 
   return <PrintSchedule userId={user.id} />;
 }

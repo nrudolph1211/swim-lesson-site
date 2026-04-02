@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthContext } from "@/components/auth/AuthProvider";
-import { NotificationBell } from "@/components/layout/NotificationBell";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -26,7 +25,6 @@ import {
 import {
   Waves,
   Menu,
-  LayoutDashboard,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -69,17 +67,15 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     await signOut();
-    router.push("/");
+    router.push("/login");
   };
 
-  const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/schedule", label: "Schedule" },
-  ];
+  // Logo link destination based on role
+  const logoHref =
+    role === "admin" ? "/admin" : role === "instructor" ? "/instructor" : "/login";
 
-  if (user) {
-    navLinks.push({ href: "/dashboard", label: "Dashboard" });
-  }
+  // Only show nav links for logged-in staff
+  const navLinks: { href: string; label: string }[] = [];
   if (role === "instructor" || role === "admin") {
     navLinks.push({ href: "/instructor", label: "Instructor" });
   }
@@ -88,7 +84,7 @@ export function Navbar() {
   }
 
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 
   return (
     <header
@@ -99,7 +95,7 @@ export function Navbar() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
+        <Link href={logoHref} className="flex items-center gap-2">
           <Waves className="size-7 text-primary" />
           <span className="font-heading text-lg font-bold text-primary">
             HAC Swim
@@ -133,62 +129,51 @@ export function Navbar() {
                   Sign In
                 </Button>
               </Link>
-              <Link href="/register">
-                <Button size="sm">Get Started</Button>
-              </Link>
             </div>
           )}
 
           {!loading && user && (
-            <>
-              <NotificationBell />
-
-              <DropdownMenu>
-                <DropdownMenuTrigger className="hidden cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring md:inline-flex">
-                  <Avatar>
-                    <AvatarFallback>
-                      {getInitials(profile?.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={8} className="w-56">
-                  <div className="px-1.5 py-1">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-medium">
-                        {profile?.full_name || "User"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {user.email}
-                      </span>
-                      <Badge
-                        variant={roleBadgeVariant(role)}
-                        className="mt-1 w-fit capitalize"
-                      >
-                        {role || "parent"}
-                      </Badge>
-                    </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="hidden cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring md:inline-flex">
+                <Avatar>
+                  <AvatarFallback>
+                    {getInitials(profile?.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={8} className="w-56">
+                <div className="px-1.5 py-1">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-medium">
+                      {profile?.full_name || "User"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {user.email}
+                    </span>
+                    <Badge
+                      variant={roleBadgeVariant(role)}
+                      className="mt-1 w-fit capitalize"
+                    >
+                      {role || "staff"}
+                    </Badge>
                   </div>
-                  <DropdownMenuSeparator />
+                </div>
+                <DropdownMenuSeparator />
+                {role === "admin" && (
                   <DropdownMenuItem
-                    onClick={() => router.push("/dashboard")}
-                  >
-                    <LayoutDashboard className="mr-2 size-4" />
-                    Dashboard
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => router.push("/dashboard/settings")}
+                    onClick={() => router.push("/admin/settings")}
                   >
                     <Settings className="mr-2 size-4" />
                     Settings
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut className="mr-2 size-4" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="mr-2 size-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
 
           {/* Mobile hamburger */}
@@ -236,12 +221,6 @@ export function Navbar() {
                       <Button variant="outline" className="w-full min-h-[48px]">
                         Sign In
                       </Button>
-                    </Link>
-                    <Link
-                      href="/register"
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      <Button className="w-full min-h-[48px]">Get Started</Button>
                     </Link>
                   </div>
                 )}

@@ -23,23 +23,14 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: {
     template: "%s — HAC Swim",
-    default: "Heights Athletic Club — Swim Lessons",
+    default: "HAC Swim — Staff Portal",
   },
   description:
-    "Swim lesson tracking and scheduling at Heights Athletic Club in Harker Heights, TX. Group and private lessons for all ages and skill levels.",
-  keywords: [
-    "swim lessons",
-    "Harker Heights",
-    "Heights Athletic Club",
-    "swimming",
-    "kids swim lessons",
-    "learn to swim",
-    "Texas swim school",
-  ],
+    "Swim lesson tracking for instructors and administrators at Heights Athletic Club.",
   openGraph: {
-    title: "Heights Athletic Club — Swim Lessons",
+    title: "HAC Swim — Staff Portal",
     description:
-      "Swim lesson tracking and scheduling at Heights Athletic Club in Harker Heights, TX. Group and private lessons for all ages and skill levels.",
+      "Swim lesson tracking for instructors and administrators at Heights Athletic Club.",
     siteName: "HAC Swim",
     locale: "en_US",
     type: "website",

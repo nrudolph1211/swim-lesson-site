@@ -7,21 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogClose,
-} from "@/components/ui/dialog";
-import {
   Table,
   TableBody,
   TableCell,
@@ -44,8 +29,6 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-type AudienceType = "all_active" | "by_level" | "by_session" | "by_class" | "waitlisted" | "inactive";
-
 interface Campaign {
   id: string;
   subject: string;
@@ -59,37 +42,18 @@ interface Campaign {
   created_at: string;
 }
 
-interface SessionOption {
-  id: string;
-  name: string;
-}
-
-interface ClassOption {
-  id: string;
-  label: string;
-}
-
 export function CampaignManager() {
   const supabase = createClient();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Compose state
-  const [step, setStep] = useState(0); // 0 = history, 1 = audience, 2 = compose, 3 = preview
-  const [audienceType, setAudienceType] = useState<AudienceType>("all_active");
-  const [audienceLevel, setAudienceLevel] = useState("1");
-  const [audienceSessionId, setAudienceSessionId] = useState("");
-  const [audienceClassId, setAudienceClassId] = useState("");
+  const [step, setStep] = useState(0); // 0 = history, 1 = compose, 2 = preview
   const [recipientCount, setRecipientCount] = useState(0);
-  const [countLoading, setCountLoading] = useState(false);
   const [subject, setSubject] = useState("");
   const [bodyHtml, setBodyHtml] = useState("");
   const [scheduleFor, setScheduleFor] = useState("");
   const [sending, setSending] = useState(false);
-
-  // Options
-  const [sessions, setSessions] = useState<SessionOption[]>([]);
-  const [classOptions, setClassOptions] = useState<ClassOption[]>([]);
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
@@ -101,128 +65,41 @@ export function CampaignManager() {
     setLoading(false);
   }, [supabase]);
 
-  const fetchOptions = useCallback(async () => {
-    const { data: sessionData } = await supabase
-      .from("sessions")
-      .select("id, name")
-      .order("start_date", { ascending: false });
-    setSessions((sessionData ?? []) as SessionOption[]);
-
-    const { data: classData } = await supabase
-      .from("classes")
-      .select("id, level, day_of_week, start_time, session:sessions(name)")
-      .eq("is_active", true);
-    setClassOptions(
-      (classData ?? []).map((c: Record<string, unknown>) => {
-        const sess = Array.isArray(c.session) ? c.session[0] : c.session;
-        return {
-          id: c.id as string,
-          label: `L${c.level} ${(c.day_of_week as string[]).join(",")} ${(c.start_time as string).slice(0, 5)} (${(sess as { name: string })?.name ?? ""})`,
-        };
-      })
-    );
-  }, [supabase]);
-
   useEffect(() => {
     fetchCampaigns();
-    fetchOptions();
-  }, [fetchCampaigns, fetchOptions]);
+  }, [fetchCampaigns]);
 
-  // Count recipients based on audience selection
+  // Count active instructors as recipients
   const countRecipients = useCallback(async () => {
-    setCountLoading(true);
-
-    let query = supabase.from("class_assignments").select("swimmer:swimmers(family_id)", { count: "exact", head: true });
-
-    switch (audienceType) {
-      case "all_active":
-        query = query.eq("status", "active");
-        break;
-      case "by_level": {
-        // Join through classes to filter by level
-        const levelNum = parseInt(audienceLevel);
-        const { data: levelClassIds } = await supabase
-          .from("classes")
-          .select("id")
-          .eq("level", levelNum)
-          .eq("is_active", true);
-        const lcIds = (levelClassIds ?? []).map((c) => c.id);
-        if (lcIds.length > 0) {
-          query = query.in("class_id", lcIds).eq("status", "active");
-        } else {
-          setRecipientCount(0);
-          setCountLoading(false);
-          return;
-        }
-        break;
-      }
-      case "by_session": {
-        if (audienceSessionId) {
-          // Join through classes to filter by session
-          const { data: sessClassIds } = await supabase
-            .from("classes")
-            .select("id")
-            .eq("session_id", audienceSessionId)
-            .eq("is_active", true);
-          const scIds = (sessClassIds ?? []).map((c) => c.id);
-          if (scIds.length > 0) {
-            query = query.in("class_id", scIds).eq("status", "active");
-          } else {
-            setRecipientCount(0);
-            setCountLoading(false);
-            return;
-          }
-        }
-        break;
-      }
-      case "by_class":
-        if (audienceClassId) {
-          query = query.eq("class_id", audienceClassId).eq("status", "active");
-        }
-        break;
-      case "waitlisted":
-        // No waitlist in class_assignments, return 0
-        setRecipientCount(0);
-        setCountLoading(false);
-        return;
-      case "inactive":
-        query = query.eq("status", "dropped");
-        break;
-    }
-
-    const { count } = await query;
+    const { count } = await supabase
+      .from("instructors")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true);
     setRecipientCount(count ?? 0);
-    setCountLoading(false);
-  }, [supabase, audienceType, audienceSessionId, audienceClassId, audienceLevel]);
+  }, [supabase]);
 
-  useEffect(() => {
-    if (step === 1) {
-      countRecipients();
-    }
-  }, [step, audienceType, audienceSessionId, audienceClassId, audienceLevel, countRecipients]);
-
-  // Merge tags
+  // Merge tags for instructor communications
   const mergeTags = [
-    { tag: "{parent_name}", description: "Parent's full name" },
-    { tag: "{swimmer_name}", description: "Swimmer's name" },
-    { tag: "{level}", description: "Swim level" },
+    { tag: "{instructor_name}", description: "Instructor's full name" },
+    { tag: "{date}", description: "Date" },
+    { tag: "{time}", description: "Time" },
     { tag: "{session_name}", description: "Session name" },
   ];
 
   const previewHtml = useMemo(() => {
     return bodyHtml
-      .replace(/\{parent_name\}/g, "Jane Smith")
-      .replace(/\{swimmer_name\}/g, "Tommy Smith")
-      .replace(/\{level\}/g, "3")
+      .replace(/\{instructor_name\}/g, "Sarah Johnson")
+      .replace(/\{date\}/g, "April 5, 2026")
+      .replace(/\{time\}/g, "9:00 AM")
       .replace(/\{session_name\}/g, "Summer 2026");
   }, [bodyHtml]);
 
   const startCompose = () => {
     setStep(1);
-    setAudienceType("all_active");
     setSubject("");
     setBodyHtml("");
     setScheduleFor("");
+    countRecipients();
   };
 
   const handleSend = async (scheduled: boolean) => {
@@ -237,16 +114,11 @@ export function CampaignManager() {
 
     setSending(true);
     try {
-      const filter: Record<string, unknown> = { type: audienceType };
-      if (audienceType === "by_level") filter.level = parseInt(audienceLevel);
-      if (audienceType === "by_session") filter.session_id = audienceSessionId;
-      if (audienceType === "by_class") filter.class_id = audienceClassId;
-
       const { error } = await supabase.from("campaigns").insert({
         subject,
         body_html: bodyHtml,
-        audience_type: audienceType,
-        audience_filter: filter,
+        audience_type: "instructors",
+        audience_filter: { type: "instructors" },
         recipient_count: recipientCount,
         status: scheduled ? "scheduled" : "sending",
         scheduled_for: scheduled && scheduleFor ? new Date(scheduleFor).toISOString() : null,
@@ -288,103 +160,23 @@ export function CampaignManager() {
     );
   }
 
-  // Step 1: Audience selection
+  // Step 1: Compose
   if (step === 1) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Step 1: Select Audience</h2>
+          <h2 className="text-lg font-bold">Step 1: Compose Message</h2>
           <Button variant="ghost" onClick={() => setStep(0)}>Cancel</Button>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <Label>Audience</Label>
-            <Select value={audienceType} onValueChange={(v) => v && setAudienceType(v as AudienceType)}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all_active">All Active Families</SelectItem>
-                <SelectItem value="by_level">By Level</SelectItem>
-                <SelectItem value="by_session">By Session</SelectItem>
-                <SelectItem value="by_class">By Class</SelectItem>
-                <SelectItem value="waitlisted">Waitlisted</SelectItem>
-                <SelectItem value="inactive">Inactive / Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {audienceType === "by_level" && (
-            <div>
-              <Label>Level</Label>
-              <Select value={audienceLevel} onValueChange={(v) => v && setAudienceLevel(v)}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5].map((l) => (
-                    <SelectItem key={l} value={String(l)}>Level {l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {audienceType === "by_session" && (
-            <div>
-              <Label>Session</Label>
-              <Select value={audienceSessionId} onValueChange={(v) => v && setAudienceSessionId(v)}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select session..." /></SelectTrigger>
-                <SelectContent>
-                  {sessions.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {audienceType === "by_class" && (
-            <div>
-              <Label>Class</Label>
-              <Select value={audienceClassId} onValueChange={(v) => v && setAudienceClassId(v)}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select class..." /></SelectTrigger>
-                <SelectContent>
-                  {classOptions.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <Users className="size-5 text-primary" />
-              {countLoading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <span className="text-lg font-bold">{recipientCount} recipient{recipientCount !== 1 ? "s" : ""}</span>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="flex justify-end">
-          <Button onClick={() => setStep(2)} disabled={recipientCount === 0}>
-            Next: Compose
-            <ChevronRight className="ml-1 size-4" />
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Step 2: Compose
-  if (step === 2) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Step 2: Compose Message</h2>
-          <Button variant="ghost" onClick={() => setStep(0)}>Cancel</Button>
-        </div>
+        <Card>
+          <CardContent className="flex items-center gap-3 p-4">
+            <Users className="size-5 text-primary" />
+            <span className="text-lg font-bold">
+              {recipientCount} active instructor{recipientCount !== 1 ? "s" : ""}
+            </span>
+          </CardContent>
+        </Card>
 
         <div className="space-y-4">
           <div>
@@ -392,7 +184,7 @@ export function CampaignManager() {
             <Input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="e.g. Summer Session Update"
+              placeholder="e.g. Schedule Update for Next Week"
               className="mt-1"
             />
           </div>
@@ -434,26 +226,23 @@ export function CampaignManager() {
           </div>
         </div>
 
-        <div className="flex justify-between">
-          <Button variant="outline" onClick={() => setStep(1)}>
-            <ChevronLeft className="mr-1 size-4" />
-            Back
-          </Button>
-          <Button onClick={() => setStep(3)} disabled={!subject.trim() || !bodyHtml.trim()}>
+        <div className="flex justify-end">
+          <Button onClick={() => setStep(2)} disabled={!subject.trim() || !bodyHtml.trim()}>
             <Eye className="mr-1 size-4" />
             Preview
+            <ChevronRight className="ml-1 size-4" />
           </Button>
         </div>
       </div>
     );
   }
 
-  // Step 3: Preview & Send
-  if (step === 3) {
+  // Step 2: Preview & Send
+  if (step === 2) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold">Step 3: Preview & Send</h2>
+          <h2 className="text-lg font-bold">Step 2: Preview & Send</h2>
           <Button variant="ghost" onClick={() => setStep(0)}>Cancel</Button>
         </div>
 
@@ -461,9 +250,7 @@ export function CampaignManager() {
           <CardContent className="space-y-3 p-4">
             <div className="flex items-center gap-2 text-sm">
               <Users className="size-4 text-muted-foreground" />
-              <span><strong>{recipientCount}</strong> recipients</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="capitalize text-muted-foreground">{audienceType.replace(/_/g, " ")}</span>
+              <span><strong>{recipientCount}</strong> active instructors</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Mail className="size-4 text-muted-foreground" />
@@ -483,7 +270,7 @@ export function CampaignManager() {
         </div>
 
         <div className="flex justify-between">
-          <Button variant="outline" onClick={() => setStep(2)}>
+          <Button variant="outline" onClick={() => setStep(1)}>
             <ChevronLeft className="mr-1 size-4" />
             Back to Edit
           </Button>
@@ -515,7 +302,7 @@ export function CampaignManager() {
         <p className="text-sm text-muted-foreground">{campaigns.length} campaign{campaigns.length !== 1 ? "s" : ""}</p>
         <Button onClick={startCompose}>
           <Send className="mr-1.5 size-4" />
-          New Campaign
+          New Message
         </Button>
       </div>
 
@@ -534,7 +321,7 @@ export function CampaignManager() {
             {campaigns.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                  No campaigns yet. Send your first one!
+                  No messages yet. Send your first one!
                 </TableCell>
               </TableRow>
             ) : (
@@ -545,7 +332,7 @@ export function CampaignManager() {
                   </TableCell>
                   <TableCell className="font-medium">{c.subject}</TableCell>
                   <TableCell className="capitalize text-sm text-muted-foreground">
-                    {c.audience_type?.replace(/_/g, " ") ?? "—"}
+                    {c.audience_type?.replace(/_/g, " ") ?? "Instructors"}
                   </TableCell>
                   <TableCell className="text-right">{c.recipient_count}</TableCell>
                   <TableCell>{statusBadge(c.status)}</TableCell>

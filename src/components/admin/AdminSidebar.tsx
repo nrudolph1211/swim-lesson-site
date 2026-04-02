@@ -8,10 +8,7 @@ import {
   Users,
   GraduationCap,
   ClipboardList,
-  TrendingUp,
-  MessageSquare,
   Download,
-  Send,
   CloudOff,
   Clock,
   Settings,
@@ -28,7 +25,7 @@ interface SidebarItem {
   icon: React.ElementType;
 }
 
-type SidebarSection = SidebarItem[] ;
+type SidebarSection = SidebarItem[];
 
 const sidebarSections: SidebarSection[] = [
   [
@@ -37,16 +34,11 @@ const sidebarSections: SidebarSection[] = [
     { label: "Swimmers", href: "/admin/swimmers", icon: Users },
     { label: "Instructors", href: "/admin/instructors", icon: GraduationCap },
     { label: "Assignments", href: "/admin/assignments", icon: ClipboardList },
-    { label: "Promotions", href: "/admin/promotions", icon: TrendingUp },
-  ],
-  [
-    { label: "Surveys", href: "/admin/surveys", icon: MessageSquare },
-    { label: "Data Export", href: "/admin/export", icon: Download },
-    { label: "Communications", href: "/admin/communicate", icon: Send },
   ],
   [
     { label: "Cancellations", href: "/admin/cancellations", icon: CloudOff },
     { label: "Payroll", href: "/admin/payroll", icon: Clock },
+    { label: "Data Export", href: "/admin/export", icon: Download },
   ],
   [
     { label: "Settings", href: "/admin/settings", icon: Settings },

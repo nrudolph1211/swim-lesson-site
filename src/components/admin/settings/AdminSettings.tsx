@@ -35,12 +35,10 @@ import {
   Building2,
   Users,
   ShieldCheck,
-  FileText,
   Bell,
   UserCog,
   Loader2,
   Save,
-  AlertTriangle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -65,10 +63,7 @@ const DEFAULTS: Record<string, unknown> = {
   makeup_credit_limit: 2,
   makeup_expiry: "end_of_session",
   cancellation_notice_hours: 24,
-  waiver_validity_months: 12,
   late_enrollment_allowed: true,
-  waiver_version: "1.0",
-  waiver_content: "",
   google_review_url: "",
   facebook_review_url: "",
 };
@@ -172,7 +167,6 @@ export function AdminSettings() {
           <TabsTrigger value="general"><Building2 className="mr-1 size-3.5" />General</TabsTrigger>
           <TabsTrigger value="classes"><Users className="mr-1 size-3.5" />Classes</TabsTrigger>
           <TabsTrigger value="policies"><ShieldCheck className="mr-1 size-3.5" />Policies</TabsTrigger>
-          <TabsTrigger value="waiver"><FileText className="mr-1 size-3.5" />Waiver</TabsTrigger>
           <TabsTrigger value="notifications"><Bell className="mr-1 size-3.5" />Notifications</TabsTrigger>
           <TabsTrigger value="admins"><UserCog className="mr-1 size-3.5" />Admins</TabsTrigger>
         </TabsList>
@@ -331,35 +325,24 @@ export function AdminSettings() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Cancellation Notice (hours)</Label>
-                  <Input type="number" min={0} max={168} value={getNum("cancellation_notice_hours")} onChange={(e) => set("cancellation_notice_hours", Number(e.target.value))} />
-                  <p className="text-xs text-muted-foreground">Hours of notice required before session start.</p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Waiver Validity (months)</Label>
-                  <Input type="number" min={1} max={24} value={getNum("waiver_validity_months")} onChange={(e) => set("waiver_validity_months", Number(e.target.value))} />
-                </div>
+              <div className="space-y-2">
+                <Label>Cancellation Notice (hours)</Label>
+                <Input type="number" min={0} max={168} value={getNum("cancellation_notice_hours")} onChange={(e) => set("cancellation_notice_hours", Number(e.target.value))} />
+                <p className="text-xs text-muted-foreground">Hours of notice required before session start.</p>
               </div>
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div>
                   <p className="text-sm font-medium">Allow Late Enrollment</p>
-                  <p className="text-xs text-muted-foreground">Parents can enroll after a session has started.</p>
+                  <p className="text-xs text-muted-foreground">Allow enrollment after a session has started.</p>
                 </div>
                 <Switch checked={getBool("late_enrollment_allowed")} onCheckedChange={(v) => set("late_enrollment_allowed", v)} />
               </div>
-              <SaveButton saving={saving} onClick={() => saveKeys(["makeup_credit_limit", "makeup_expiry", "cancellation_notice_hours", "waiver_validity_months", "late_enrollment_allowed"])} />
+              <SaveButton saving={saving} onClick={() => saveKeys(["makeup_credit_limit", "makeup_expiry", "cancellation_notice_hours", "late_enrollment_allowed"])} />
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* TAB 5 — WAIVER */}
-        <TabsContent value="waiver">
-          <WaiverTab settings={settings} set={set} getStr={getStr} saveKeys={saveKeys} saving={saving} />
-        </TabsContent>
-
-        {/* TAB 6 — NOTIFICATIONS */}
+        {/* TAB 5 — NOTIFICATIONS */}
         <TabsContent value="notifications">
           <NotificationTemplatesTab settings={settings} set={set} getStr={getStr} saveKeys={saveKeys} saving={saving} />
         </TabsContent>
@@ -382,69 +365,12 @@ function SaveButton({ saving, onClick }: { saving: boolean; onClick: () => void 
   );
 }
 
-/* ── WAIVER TAB ── */
-function WaiverTab({
-  settings, set, getStr, saveKeys, saving,
-}: {
-  settings: Record<string, unknown>;
-  set: (k: string, v: unknown) => void;
-  getStr: (k: string) => string;
-  saveKeys: (keys: string[], overrides?: Record<string, unknown>) => Promise<void>;
-  saving: boolean;
-}) {
-  const currentVersion = getStr("waiver_version") || "1.0";
-
-  const handleSave = async () => {
-    // Auto-increment version
-    const parts = currentVersion.split(".");
-    const minor = (parseInt(parts[1] ?? "0") || 0) + 1;
-    const newVersion = `${parts[0]}.${minor}`;
-    set("waiver_version", newVersion);
-
-    // Pass the new version as an override so it's saved immediately
-    // (state update from set() is async and won't be reflected in settings yet)
-    await saveKeys(["waiver_content", "waiver_version"], { waiver_version: newVersion });
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-lg font-semibold">Waiver Content</h2>
-          <Badge variant="outline">Version {currentVersion}</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-start gap-2 rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <p>Saving waiver content auto-increments the version. All families will need to re-sign the updated waiver before their next class.</p>
-        </div>
-        <div className="space-y-2">
-          <Label>Waiver Text (HTML supported)</Label>
-          <Textarea
-            value={getStr("waiver_content")}
-            onChange={(e) => set("waiver_content", e.target.value)}
-            rows={16}
-            className="font-mono text-sm"
-            placeholder="Enter waiver content here. HTML tags are supported for formatting."
-          />
-        </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-          Save & Increment Version
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
 /* ── NOTIFICATION TEMPLATES TAB ── */
 const TEMPLATE_KEYS = [
-  { key: "tpl_enrollment_confirmed", label: "Enrollment Confirmed", defaultSubject: "Your enrollment is confirmed!", defaultBody: "Hi {{parent_name}}, {{swimmer_name}} is enrolled in {{session_name}} (Level {{level}}). See you at the pool!" },
-  { key: "tpl_weather_cancellation", label: "Weather Cancellation", defaultSubject: "Class cancelled — {{date}}", defaultBody: "Hi {{parent_name}}, {{swimmer_name}}'s class on {{date}} has been cancelled due to weather. A make-up credit has been added to your account." },
-  { key: "tpl_waitlist_promoted", label: "Waitlist Promoted", defaultSubject: "A spot opened up!", defaultBody: "Hi {{parent_name}}, a spot opened up for {{swimmer_name}} in {{session_name}}. Your enrollment is now confirmed!" },
-  { key: "tpl_waiver_expiring", label: "Waiver Expiring", defaultSubject: "Waiver renewal needed", defaultBody: "Hi {{parent_name}}, the waiver for {{swimmer_name}} expires on {{expiry_date}}. Please renew before the next class." },
-  { key: "tpl_lesson_reminder", label: "Lesson Reminder", defaultSubject: "Swim lesson tomorrow!", defaultBody: "Hi {{parent_name}}, {{swimmer_name}} has swim lessons tomorrow at {{time}}. Don't forget a towel and goggles!" },
+  { key: "tpl_enrollment_confirmed", label: "Enrollment Confirmed", defaultSubject: "Enrollment confirmed: {{swimmer_name}}", defaultBody: "{{swimmer_name}} is enrolled in {{session_name}} (Level {{level}})." },
+  { key: "tpl_weather_cancellation", label: "Weather Cancellation", defaultSubject: "Class cancelled — {{date}}", defaultBody: "{{swimmer_name}}'s class on {{date}} has been cancelled due to weather. A make-up credit has been added." },
+  { key: "tpl_waitlist_promoted", label: "Waitlist Promoted", defaultSubject: "A spot opened up!", defaultBody: "A spot opened up for {{swimmer_name}} in {{session_name}}. The enrollment is now confirmed." },
+  { key: "tpl_lesson_reminder", label: "Lesson Reminder", defaultSubject: "Swim lesson tomorrow!", defaultBody: "{{swimmer_name}} has swim lessons tomorrow at {{time}}. Don't forget a towel and goggles!" },
   { key: "tpl_level_promotion", label: "Level Promotion", defaultSubject: "{{swimmer_name}} leveled up!", defaultBody: "Congratulations! {{swimmer_name}} has been promoted to Level {{new_level}}: {{level_name}}. Great progress!" },
 ];
 
@@ -485,7 +411,7 @@ function NotificationTemplatesTab({
       <CardHeader>
         <h2 className="font-heading text-lg font-semibold">Email Templates</h2>
         <p className="text-xs text-muted-foreground">
-          Available merge tags: {"{{parent_name}}, {{swimmer_name}}, {{session_name}}, {{level}}, {{date}}, {{time}}, {{expiry_date}}, {{new_level}}, {{level_name}}"}
+          Available merge tags: {"{{swimmer_name}}, {{session_name}}, {{level}}, {{date}}, {{time}}, {{new_level}}, {{level_name}}"}
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -523,25 +449,21 @@ function NotificationTemplatesTab({
               <div className="rounded-lg bg-muted p-3 text-sm">
                 <p className="font-medium">
                   {getTemplate(tpl.key, "subject")
-                    .replace(/\{\{parent_name\}\}/g, "Jane Smith")
                     .replace(/\{\{swimmer_name\}\}/g, "Alex Smith")
                     .replace(/\{\{session_name\}\}/g, "Summer 2026")
                     .replace(/\{\{level\}\}/g, "3")
                     .replace(/\{\{date\}\}/g, "March 25, 2026")
                     .replace(/\{\{time\}\}/g, "9:00 AM")
-                    .replace(/\{\{expiry_date\}\}/g, "April 15, 2026")
                     .replace(/\{\{new_level\}\}/g, "4")
                     .replace(/\{\{level_name\}\}/g, "Advanced")}
                 </p>
                 <p className="mt-2 text-muted-foreground">
                   {getTemplate(tpl.key, "body")
-                    .replace(/\{\{parent_name\}\}/g, "Jane Smith")
                     .replace(/\{\{swimmer_name\}\}/g, "Alex Smith")
                     .replace(/\{\{session_name\}\}/g, "Summer 2026")
                     .replace(/\{\{level\}\}/g, "3")
                     .replace(/\{\{date\}\}/g, "March 25, 2026")
                     .replace(/\{\{time\}\}/g, "9:00 AM")
-                    .replace(/\{\{expiry_date\}\}/g, "April 15, 2026")
                     .replace(/\{\{new_level\}\}/g, "4")
                     .replace(/\{\{level_name\}\}/g, "Advanced")}
                 </p>
@@ -609,7 +531,7 @@ function AdminManagementTab() {
   };
 
   const handleRemove = async (id: string, name: string) => {
-    if (!confirm(`Remove admin access for ${name}? They'll be downgraded to parent role.`)) return;
+    if (!confirm(`Remove admin access for ${name}? Their admin privileges will be revoked.`)) return;
     const result = await removeAdmin(id);
     if (result.error) {
       toast.error(result.error);

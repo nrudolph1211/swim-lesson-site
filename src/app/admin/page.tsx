@@ -8,9 +8,7 @@ import {
   BookOpen,
   BarChart3,
   AlertTriangle,
-  ShieldAlert,
   UserPlus,
-  FileCheck,
   CalendarPlus,
   Plus,
   CloudOff,
@@ -18,7 +16,6 @@ import {
   Award,
   ClipboardList,
 } from "lucide-react";
-import { EnrollmentByLevelChart } from "@/components/admin/charts/EnrollmentByLevelChart";
 import { ScheduleHeatmap } from "@/components/admin/charts/ScheduleHeatmap";
 import { formatDistanceToNow } from "date-fns";
 
@@ -34,6 +31,22 @@ const DAY_MAP: Record<string, string> = {
   Saturday: "Sat",
 };
 
+const LEVEL_NAMES: Record<number, string> = {
+  1: "Water Intro",
+  2: "Beginner",
+  3: "Intermediate",
+  4: "Advanced",
+  5: "Pre-Competitive",
+};
+
+const LEVEL_COLORS: Record<number, string> = {
+  1: "bg-sky-100 text-sky-800",
+  2: "bg-blue-100 text-blue-800",
+  3: "bg-indigo-100 text-indigo-800",
+  4: "bg-violet-100 text-violet-800",
+  5: "bg-purple-100 text-purple-800",
+};
+
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
 
@@ -45,9 +58,7 @@ export default async function AdminDashboardPage() {
     activeInstructorsRes,
     skillsMasteredRes,
     classAssignmentsRes,
-    recentWaiversRes,
     recentSwimmersRes,
-    unsignedWaiverCountRes,
     expiringCertsRes,
     pendingPromotionsRes,
   ] = await Promise.all([
@@ -87,33 +98,20 @@ export default async function AdminDashboardPage() {
       .from("class_assignments")
       .select("id, class_id", { count: "exact" }),
 
-    // 7. Recent waivers
-    supabase
-      .from("waivers")
-      .select("id, signed_at, swimmer:swimmers(first_name, last_name)")
-      .order("signed_at", { ascending: false })
-      .limit(5),
-
-    // 8. Recent swimmers
+    // 7. Recent swimmers
     supabase
       .from("swimmers")
       .select("id, first_name, last_name, created_at")
       .order("created_at", { ascending: false })
-      .limit(5),
+      .limit(10),
 
-    // 9. Active swimmer IDs (for unsigned waiver check)
-    supabase
-      .from("swimmers")
-      .select("id")
-      .eq("is_active", true),
-
-    // 10. Expiring instructor certs (within 30 days)
+    // 8. Expiring instructor certs (within 30 days)
     supabase
       .from("instructors")
       .select("id, certifications, profile:profiles(full_name)")
       .eq("is_active", true),
 
-    // 11. Pending promotions
+    // 9. Pending promotions
     supabase
       .from("promotion_requests")
       .select("id", { count: "exact", head: true })
@@ -142,6 +140,7 @@ export default async function AdminDashboardPage() {
     level,
     count: swimmersByLevel[level] ?? 0,
   }));
+  const maxLevelCount = Math.max(...levelChartData.map((d) => d.count), 1);
 
   // ── Schedule heatmap ────────────────────────────────────────
   const heatmapData: Record<string, number> = {};
@@ -161,25 +160,12 @@ export default async function AdminDashboardPage() {
   // ── Recent activity ─────────────────────────────────────────
   type Activity = {
     id: string;
-    type: "waiver" | "swimmer";
+    type: "swimmer";
     description: string;
     timestamp: string;
   };
 
   const activities: Activity[] = [];
-
-  for (const w of recentWaiversRes.data ?? []) {
-    const swimmer = w.swimmer as unknown as { first_name: string; last_name: string } | null;
-    const name = swimmer
-      ? `${swimmer.first_name} ${swimmer.last_name}`
-      : "Unknown";
-    activities.push({
-      id: `w-${w.id}`,
-      type: "waiver",
-      description: `Waiver signed for ${name}`,
-      timestamp: w.signed_at ?? new Date().toISOString(),
-    });
-  }
 
   for (const s of recentSwimmersRes.data ?? []) {
     activities.push({
@@ -196,28 +182,6 @@ export default async function AdminDashboardPage() {
   const recentActivities = activities.slice(0, 10);
 
   // ── Action items ────────────────────────────────────────────
-  // Unsigned waivers: active swimmers without active, unexpired waivers
-  const activeSwimmerIds = (unsignedWaiverCountRes.data ?? []).map(
-    (s: { id: string }) => s.id
-  );
-
-  let unsignedWaivers = 0;
-  if (activeSwimmerIds.length > 0) {
-    const { data: activeWaivers } = await supabase
-      .from("waivers")
-      .select("swimmer_id")
-      .in("swimmer_id", activeSwimmerIds)
-      .eq("is_active", true)
-      .gte("expires_at", new Date().toISOString());
-
-    const signedSet = new Set(
-      (activeWaivers ?? []).map((w: { swimmer_id: string }) => w.swimmer_id)
-    );
-    unsignedWaivers = activeSwimmerIds.filter(
-      (id: string) => !signedSet.has(id)
-    ).length;
-  }
-
   // Expiring certs: check certifications jsonb for expiry dates within 30 days
   let expiringCerts = 0;
   const now = new Date();
@@ -287,7 +251,33 @@ export default async function AdminDashboardPage() {
             <h3 className="text-sm font-semibold">Swimmers by Level</h3>
           </CardHeader>
           <CardContent>
-            <EnrollmentByLevelChart data={levelChartData} />
+            <div className="space-y-3">
+              {levelChartData.map((d) => (
+                <div key={d.level} className="flex items-center gap-3">
+                  <Badge
+                    variant="outline"
+                    className={`w-28 justify-center ${LEVEL_COLORS[d.level] ?? ""}`}
+                  >
+                    L{d.level} {LEVEL_NAMES[d.level]}
+                  </Badge>
+                  <div className="flex-1">
+                    <div className="h-6 w-full rounded-md bg-muted">
+                      <div
+                        className="flex h-full items-center rounded-md bg-primary/80 px-2 text-xs font-medium text-primary-foreground transition-all"
+                        style={{
+                          width: `${Math.max((d.count / maxLevelCount) * 100, d.count > 0 ? 12 : 0)}%`,
+                        }}
+                      >
+                        {d.count > 0 && d.count}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="w-8 text-right text-sm font-medium tabular-nums">
+                    {d.count}
+                  </span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -321,12 +311,7 @@ export default async function AdminDashboardPage() {
                     className="flex items-start gap-3 text-sm"
                   >
                     <div className="mt-0.5 shrink-0">
-                      {activity.type === "waiver" && (
-                        <FileCheck className="size-3.5 text-green-600" />
-                      )}
-                      {activity.type === "swimmer" && (
-                        <UserPlus className="size-3.5 text-blue-600" />
-                      )}
+                      <UserPlus className="size-3.5 text-blue-600" />
                     </div>
                     <div className="flex-1">
                       <p>{activity.description}</p>
@@ -350,12 +335,6 @@ export default async function AdminDashboardPage() {
               <h3 className="text-sm font-semibold">Action Items</h3>
             </CardHeader>
             <CardContent className="space-y-2">
-              <ActionItem
-                icon={<ShieldAlert className="size-3.5 text-red-600" />}
-                label="Unsigned waivers"
-                count={unsignedWaivers}
-                href="/admin/waivers"
-              />
               <ActionItem
                 icon={<AlertTriangle className="size-3.5 text-yellow-600" />}
                 label="Expiring certifications"

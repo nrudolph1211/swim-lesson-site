@@ -14,23 +14,16 @@ export default function NotFound() {
         Page Not Found
       </h2>
       <p className="mt-2 max-w-md text-muted-foreground">
-        Looks like this page took a dive into the deep end. Let&apos;s get you
-        back on deck.
+        The page you are looking for does not exist.
       </p>
 
       <div className="mt-8 flex items-center gap-4">
         <Link
-          href="/"
+          href="/login"
           className="inline-flex items-center rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
-          Go Home
+          Go to Login
         </Link>
-        <a
-          href="mailto:swim@hacswim.com"
-          className="text-sm font-medium text-accent hover:underline"
-        >
-          Contact Us
-        </a>
       </div>
     </div>
   );
